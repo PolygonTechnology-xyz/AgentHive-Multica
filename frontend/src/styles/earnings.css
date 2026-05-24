@@ -1,0 +1,1101 @@
+/* ═══════════════════════════════════════════════════════════
+   earnings.css — Sub-module 5: Payout Tracking
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Page scaffold ────────────────────────────────────────── */
+.er-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 28px 28px 80px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.er-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.er-page-title {
+  font-size: clamp(1.4rem, 2.8vw, 1.9rem);
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: -0.04em;
+  margin: 0 0 4px;
+}
+.er-page-sub { font-size: 0.83rem; color: var(--text-3); margin: 0; }
+
+.er-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.er-export-btn:hover {
+  border-color: rgba(0, 255, 136, 0.4);
+  color: var(--accent);
+}
+
+/* ── Shared card ──────────────────────────────────────────── */
+.er-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  backdrop-filter: blur(16px);
+  margin-bottom: 18px;
+}
+
+/* ── Section 1 — Lifetime Hero ────────────────────────────── */
+.er-hero-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  backdrop-filter: blur(16px);
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  padding: 52px 40px 40px;
+  margin-bottom: 18px;
+}
+.er-hero-card::before {
+  content: '';
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 700px;
+  height: 500px;
+  background: radial-gradient(ellipse at center,
+    rgba(0, 255, 136, 0.11) 0%,
+    rgba(0, 255, 136, 0.04) 40%,
+    transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.er-hero-inner { position: relative; z-index: 1; }
+.er-hero-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 10px;
+}
+.er-hero-val {
+  font-size: clamp(3.2rem, 8vw, 5.8rem);
+  font-weight: 900;
+  color: var(--accent);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-shadow: 0 0 50px rgba(0, 255, 136, 0.35);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 10px;
+  display: block;
+}
+.er-hero-sub {
+  font-size: 0.82rem;
+  color: var(--text-3);
+  margin-bottom: 36px;
+}
+.er-hero-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  max-width: 660px;
+  margin: 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
+}
+.er-hero-stat {
+  flex: 1;
+  padding: 18px 24px;
+  text-align: center;
+}
+.er-hero-stat + .er-hero-stat {
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+}
+.er-hero-stat-val {
+  font-size: 1.32rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.03em;
+  margin-bottom: 3px;
+}
+.er-hero-stat-label {
+  font-size: 0.77rem;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 2px;
+}
+.er-hero-stat-sub { font-size: 0.7rem; color: var(--text-3); }
+
+/* ── Section 2 — Earnings Chart ───────────────────────────── */
+.er-chart-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  backdrop-filter: blur(16px);
+  padding: 24px 24px 20px;
+  margin-bottom: 18px;
+}
+.er-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+.er-chart-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.er-chart-tabs {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 3px;
+}
+.er-chart-tab {
+  padding: 6px 18px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-3);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 0.2s;
+}
+.er-chart-tab.active {
+  background: rgba(0, 255, 136, 0.12);
+  color: var(--accent);
+  border: 1px solid rgba(0, 255, 136, 0.2);
+}
+.er-chart-wrap {
+  width: 100%;
+  overflow: visible;
+  position: relative;
+}
+.er-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+/* Tooltip inside foreignObject */
+.ec-tooltip {
+  background: rgba(15, 15, 22, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 10px 12px;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.ec-tt-month {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 7px;
+  letter-spacing: -0.01em;
+}
+.ec-tt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: 0.73rem;
+  color: var(--text-2);
+  margin-bottom: 3px;
+}
+.ec-tt-row span:last-child { font-weight: 600; }
+.ec-tt-comm span:last-child { color: rgba(255, 80, 80, 0.75); }
+.ec-tt-net span { color: var(--accent); font-weight: 700; }
+.ec-tt-jobs {
+  font-size: 0.68rem;
+  color: var(--text-3);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.er-chart-chips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.er-chart-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-2);
+}
+.er-chart-chip.best { border-color: rgba(0, 255, 136, 0.2); color: var(--accent); }
+.er-chart-chip.avg { border-color: rgba(255, 255, 255, 0.12); }
+.er-chart-chip.current { border-color: rgba(251, 191, 36, 0.25); color: var(--warn); }
+
+/* ── Section 3 — Pending Balance ──────────────────────────── */
+.er-pending-card {
+  background: rgba(251, 191, 36, 0.04);
+  border: 1px solid rgba(251, 191, 36, 0.18);
+  border-radius: 14px;
+  padding: 0;
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+.er-pending-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 22px 24px 16px;
+  gap: 16px;
+  border-bottom: 1px solid rgba(251, 191, 36, 0.1);
+}
+.er-pending-title-wrap {}
+.er-pending-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  margin-bottom: 2px;
+}
+.er-pending-header-sub { font-size: 0.77rem; color: var(--text-3); }
+.er-pending-total-wrap { text-align: right; flex-shrink: 0; }
+.er-pending-total {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--warn);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.er-pending-total-label { font-size: 0.7rem; color: var(--text-3); margin-top: 3px; }
+
+.er-pending-note {
+  margin: 0 24px 16px;
+  padding: 10px 14px;
+  background: rgba(251, 191, 36, 0.07);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: var(--warn);
+  line-height: 1.5;
+  margin-top: 16px;
+}
+.er-pending-note span { font-weight: 700; }
+
+.er-pending-rows { padding: 0 0 8px; }
+.er-pending-row {
+  display: grid;
+  grid-template-columns: 1fr 120px 120px 120px;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s;
+}
+.er-pending-row:hover { background: rgba(251, 191, 36, 0.03); }
+.er-pending-row-header {
+  display: grid;
+  grid-template-columns: 1fr 120px 120px 120px;
+  gap: 12px;
+  padding: 8px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.er-pending-th {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.er-pending-job-title {
+  font-size: 0.85rem;
+  color: var(--text);
+  font-weight: 500;
+  margin-bottom: 4px;
+  line-height: 1.35;
+}
+.er-pending-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-bottom: 3px;
+}
+.er-pending-badge.delivered {
+  background: rgba(251, 191, 36, 0.1);
+  color: var(--warn);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+.er-pending-badge.in-revision {
+  background: rgba(251, 191, 36, 0.1);
+  color: var(--warn);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+.er-pending-badge.in-progress {
+  background: rgba(0, 229, 255, 0.08);
+  color: var(--buyer);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+}
+.er-pending-badge-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.er-pending-badge.in-revision .er-pending-badge-dot {
+  animation: er-pulse 1.4s ease-in-out infinite;
+}
+@keyframes er-pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.er-pending-badge-sub {
+  font-size: 0.7rem;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+.er-pending-amt {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.er-pending-est {
+  font-size: 0.85rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+.er-pending-est-note { font-size: 0.68rem; color: var(--text-3); margin-top: 2px; }
+.er-pending-action {
+  font-size: 0.78rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+.er-pending-action:hover { opacity: 0.7; }
+.er-pending-footer {
+  padding: 12px 24px 18px;
+  font-size: 0.75rem;
+  color: var(--text-3);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  line-height: 1.5;
+}
+
+/* ── Section 4 — Payout History ───────────────────────────── */
+.er-payout-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+.er-payout-card-header {
+  padding: 22px 24px 0;
+}
+.er-payout-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  margin-bottom: 2px;
+}
+.er-payout-card-sub { font-size: 0.77rem; color: var(--text-3); margin-bottom: 16px; }
+
+.er-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-wrap: wrap;
+}
+.er-date-select {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-2);
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.3)'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.er-date-select:focus { border-color: rgba(0, 255, 136, 0.35); }
+.er-search-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.er-search-input::placeholder { color: var(--text-3); }
+.er-search-input:focus { border-color: rgba(0, 255, 136, 0.35); }
+
+.er-table-wrap { overflow-x: auto; }
+.er-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 780px;
+}
+.er-thead-row {}
+.er-th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+}
+.er-th:first-child { padding-left: 24px; }
+.er-th:last-child { padding-right: 24px; text-align: center; }
+
+.er-row {
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-left: 2px solid transparent;
+}
+.er-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.er-row:hover::before { opacity: 1; }
+.er-row:hover { background: rgba(0, 255, 136, 0.025); }
+
+.er-td {
+  padding: 13px 16px;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 0.83rem;
+  color: var(--text-2);
+}
+.er-td:first-child { padding-left: 24px; }
+.er-td:last-child { padding-right: 24px; text-align: center; }
+
+.er-td-date { color: var(--text-3); font-size: 0.78rem; white-space: nowrap; }
+.er-td-job {
+  color: var(--text);
+  font-weight: 500;
+  max-width: 240px;
+  line-height: 1.35;
+}
+.er-td-job a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.er-td-job a:hover { color: var(--accent); }
+.er-td-gross { white-space: nowrap; }
+.er-td-comm {
+  white-space: nowrap;
+  color: rgba(255, 100, 100, 0.7);
+}
+.er-td-comm-pct {
+  display: block;
+  font-size: 0.67rem;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+.er-td-net {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+.er-td-ref {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.76rem;
+  color: var(--text-3);
+  white-space: nowrap;
+  position: relative;
+}
+.er-ref-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.er-copy-icon {
+  opacity: 0;
+  cursor: pointer;
+  color: var(--text-3);
+  transition: opacity 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+}
+.er-copy-icon:hover { color: var(--accent); }
+.er-row:hover .er-copy-icon { opacity: 1; }
+.er-copy-icon.copied { opacity: 1; color: var(--accent); }
+
+.er-invoice-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-3);
+  padding: 5px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.er-invoice-btn:hover {
+  color: var(--accent);
+  background: rgba(0, 255, 136, 0.08);
+}
+
+/* Totals row */
+.er-totals-row td {
+  padding: 12px 16px;
+  font-size: 0.78rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
+  color: var(--text-3);
+  background: rgba(255, 255, 255, 0.015);
+}
+.er-totals-row td:first-child { padding-left: 24px; }
+.er-totals-row td:last-child { padding-right: 24px; }
+.er-totals-label { font-weight: 600; font-size: 0.72rem; letter-spacing: 0.04em; }
+.er-totals-gross { color: var(--text-2); font-weight: 600; }
+.er-totals-comm { color: rgba(255, 100, 100, 0.6); font-weight: 600; }
+.er-totals-net {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.er-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.er-pagination-info { font-size: 0.78rem; color: var(--text-3); }
+.er-pagination-btns { display: flex; gap: 6px; }
+.er-page-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.er-page-btn:hover:not(:disabled) {
+  border-color: rgba(0, 255, 136, 0.3);
+  color: var(--accent);
+}
+.er-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.er-page-btn.active {
+  background: rgba(0, 255, 136, 0.1);
+  border-color: rgba(0, 255, 136, 0.3);
+  color: var(--accent);
+}
+
+/* ── Section 5 — Payout Detail Slide-Over ─────────────────── */
+.er-so-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.er-so-overlay.open { opacity: 1; pointer-events: all; }
+
+.er-so-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  max-width: 100vw;
+  background: #0e0e18;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 201;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0, 0.67, 0);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.er-so-panel.open {
+  transform: translateX(0);
+  transition-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+}
+.er-so-header {
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+.er-so-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.er-so-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 4px;
+}
+.er-so-ref {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.er-so-ref-copy {
+  cursor: pointer;
+  color: var(--text-3);
+  transition: color 0.15s;
+  display: inline-flex;
+  padding: 2px;
+}
+.er-so-ref-copy:hover { color: var(--accent); }
+.er-so-date { font-size: 0.78rem; color: var(--text-3); }
+.er-so-close {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 1.1rem;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.er-so-close:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+
+.er-so-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.er-so-body::-webkit-scrollbar { width: 4px; }
+.er-so-body::-webkit-scrollbar-track { background: transparent; }
+.er-so-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.er-so-section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 10px;
+}
+
+/* Breakdown card */
+.er-breakdown-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+.er-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 6px 0;
+  font-size: 0.87rem;
+}
+.er-breakdown-label { color: var(--text-2); }
+.er-breakdown-val { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.er-breakdown-divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 6px 0;
+}
+.er-breakdown-row.comm .er-breakdown-val { color: rgba(255, 100, 100, 0.75); }
+.er-breakdown-row.comm-sub {
+  font-size: 0.76rem;
+  padding: 2px 0 6px;
+  color: var(--text-3);
+  display: flex;
+  justify-content: space-between;
+}
+.er-breakdown-row.net .er-breakdown-label {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+.er-breakdown-row.net .er-breakdown-val {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+}
+.er-breakdown-double {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+.er-breakdown-underline {
+  display: inline-block;
+  border-bottom: 3px double rgba(0, 255, 136, 0.5);
+  padding-bottom: 1px;
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: var(--accent);
+}
+.er-breakdown-note {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  line-height: 1.5;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Detail fields */
+.er-detail-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.er-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 10px 14px;
+  font-size: 0.81rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.er-detail-row:first-child { border-top: none; }
+.er-detail-key { color: var(--text-3); flex-shrink: 0; }
+.er-detail-val {
+  color: var(--text-2);
+  font-weight: 500;
+  text-align: right;
+  line-height: 1.4;
+}
+.er-detail-val.mono {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.77rem;
+}
+.er-detail-val.green { color: var(--accent); }
+
+/* PPay status */
+.er-ppay-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+.er-ppay-status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+/* Invoice buttons */
+.er-invoice-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+.er-invoice-row:first-of-type { border-top: none; }
+.er-invoice-dl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 255, 136, 0.25);
+  background: rgba(0, 255, 136, 0.06);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.er-invoice-dl-btn:hover {
+  background: rgba(0, 255, 136, 0.12);
+  border-color: rgba(0, 255, 136, 0.4);
+}
+.er-invoice-note {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  line-height: 1.5;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ── Section 6 — Commission Info ─────────────────────────── */
+.er-commission-section {
+  margin-bottom: 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.er-commission-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+  transition: color 0.15s;
+}
+.er-commission-toggle:hover { color: var(--text); }
+.er-commission-chevron {
+  font-size: 0.8rem;
+  color: var(--text-3);
+  transition: transform 0.25s;
+}
+.er-commission-toggle.open .er-commission-chevron { transform: rotate(180deg); }
+.er-commission-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.er-commission-body.open { max-height: 700px; }
+.er-commission-inner {
+  padding: 0 22px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.er-commission-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  padding-top: 20px;
+}
+.er-comm-how-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 12px;
+}
+.er-comm-point {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 0.81rem;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+.er-comm-point::before {
+  content: '—';
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+/* Commission timeline */
+.er-timeline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.er-timeline-step {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.er-timeline-step.highlight {
+  background: rgba(0, 255, 136, 0.08);
+  border-color: rgba(0, 255, 136, 0.25);
+  color: var(--accent);
+}
+.er-timeline-arrow {
+  color: var(--text-3);
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+/* Commission summary table */
+.er-comm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.81rem;
+}
+.er-comm-table th {
+  text-align: left;
+  padding: 6px 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.er-comm-table td {
+  padding: 7px 0;
+  color: var(--text-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.er-comm-table td:last-child { text-align: right; color: var(--text); font-weight: 600; }
+.er-comm-table tr.current td { color: var(--warn); }
+.er-comm-table tr.current td:last-child { color: var(--warn); }
+.er-comm-table tfoot td {
+  font-weight: 700;
+  color: var(--text);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
+  padding-top: 10px;
+}
+.er-comm-table tfoot td:last-child { color: var(--accent); }
+.er-comm-support {
+  font-size: 0.75rem;
+  margin-top: 14px;
+  color: var(--text-3);
+}
+.er-comm-support a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.er-comm-support a:hover { opacity: 0.75; }
+
+/* ── Global toast ─────────────────────────────────────────── */
+.er-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: rgba(15, 22, 15, 0.97);
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  border-radius: 10px;
+  padding: 12px 22px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+  z-index: 300;
+  white-space: nowrap;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+.er-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .er-page { padding: 16px 14px 60px; }
+  .er-hero-card { padding: 36px 20px 28px; }
+  .er-hero-stats { flex-direction: column; max-width: 320px; }
+  .er-hero-stat + .er-hero-stat { border-left: none; border-top: 1px solid rgba(255,255,255,0.07); }
+  .er-commission-grid { grid-template-columns: 1fr; gap: 20px; }
+  .er-pending-row, .er-pending-row-header {
+    grid-template-columns: 1fr 90px 90px 90px;
+    gap: 8px;
+    padding: 12px 14px;
+  }
+  .er-payout-card-header, .er-filter-bar, .er-pagination {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .er-th:first-child, .er-td:first-child { padding-left: 14px; }
+  .er-th:last-child, .er-td:last-child { padding-right: 14px; }
+}
+@media (max-width: 600px) {
+  .er-pending-row, .er-pending-row-header {
+    grid-template-columns: 1fr;
+  }
+}
