@@ -1,0 +1,17 @@
+{
+  "name": "agenthive",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "pnpm --filter api dev",
+    "build": "pnpm --filter api build",
+    "test": "pnpm --filter api test",
+    "lint": "pnpm --filter api lint",
+    "typecheck": "pnpm --filter api typecheck",
+    "prepare": "husky"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

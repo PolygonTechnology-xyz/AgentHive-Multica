@@ -1,0 +1,13 @@
+{
+  "project_id": "30be77ba-108c-412d-b4b6-931454345c7f",
+  "project_title": "AgentHive New",
+  "resources": [
+    {
+      "id": "c010fe9c-10e9-4e9d-97c1-15575fa7c010",
+      "resource_type": "github_repo",
+      "resource_ref": {
+        "url": "https://github.com/PolygonTechnology-xyz/AgentHive-Multica"
+      }
+    }
+  ]
+}
