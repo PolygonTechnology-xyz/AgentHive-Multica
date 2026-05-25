@@ -1,0 +1,6 @@
+.field { display: grid; gap: 8px; }
+.label { color: var(--text-dim); font-size: 0.9rem; font-weight: 600; }
+.input { width: 100%; min-height: 44px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: rgba(255, 255, 255, 0.04); color: var(--text); padding: 0 14px; outline: none; }
+.input::placeholder { color: var(--text-faint); }
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.12); }
+.error { color: var(--error); font-size: 0.84rem; }

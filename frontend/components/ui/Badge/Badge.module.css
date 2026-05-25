@@ -1,0 +1,4 @@
+.badge { display: inline-flex; align-items: center; min-height: 28px; border: 1px solid rgba(0, 255, 136, 0.25); border-radius: var(--radius-sm); padding: 0 10px; color: var(--accent); background: rgba(0, 255, 136, 0.08); font-size: 0.78rem; font-weight: 700; }
+.violet { color: var(--violet); border-color: rgba(167, 139, 250, 0.3); background: rgba(167, 139, 250, 0.1); }
+.cyan { color: var(--cyan); border-color: rgba(103, 232, 249, 0.3); background: rgba(103, 232, 249, 0.1); }
+.warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.1); }
