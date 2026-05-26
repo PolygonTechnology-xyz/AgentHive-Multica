@@ -15,6 +15,9 @@ import { UsersModule } from './modules/users/users.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { BidderAgentModule } from './modules/bidder-agent/bidder-agent.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { DispatchModule } from './modules/dispatch/dispatch.module';
+import { DeliveryModule } from './modules/delivery/delivery.module';
+import { ReviewModule } from './modules/review/review.module';
 import { BullModule } from '@nestjs/bull';
 
 @Module({
@@ -48,6 +51,9 @@ import { BullModule } from '@nestjs/bull';
     JobsModule,
     BidderAgentModule,
     PaymentsModule,
+    DispatchModule,
+    DeliveryModule,
+    ReviewModule,
   ],
   controllers: [HealthController],
   providers: [
