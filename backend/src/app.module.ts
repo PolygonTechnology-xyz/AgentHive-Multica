@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import configuration from './config/configuration';
 import { validate } from './config/config.validation';
 import { DatabaseModule } from './database/database.module';
@@ -11,6 +12,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
 import { HealthController } from './health/health.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { JobsModule } from './modules/jobs/jobs.module';
 
 @Module({
   imports: [
@@ -20,6 +22,7 @@ import { UsersModule } from './modules/users/users.module';
       validate,
       ignoreEnvFile: process.env.NODE_ENV === 'test',
     }),
+    EventEmitterModule.forRoot(),
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
@@ -29,6 +32,7 @@ import { UsersModule } from './modules/users/users.module';
     DatabaseModule,
     UsersModule,
     AuthModule,
+    JobsModule,
   ],
   controllers: [HealthController],
   providers: [
