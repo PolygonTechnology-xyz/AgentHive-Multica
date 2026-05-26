@@ -22,6 +22,7 @@ import { ReviewModule } from './modules/review/review.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { AuditLogModule } from './modules/audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { AdminModule } from './modules/admin/admin.module';
     NotificationsModule,
     DisputesModule,
     AdminModule,
+    AuditLogModule,
   ],
   controllers: [HealthController],
   providers: [
