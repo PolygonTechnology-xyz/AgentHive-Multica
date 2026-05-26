@@ -9,6 +9,8 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 import { HealthController } from './health/health.controller';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { HealthController } from './health/health.controller';
       },
     ]),
     DatabaseModule,
+    UsersModule,
+    AuthModule,
   ],
   controllers: [HealthController],
   providers: [
