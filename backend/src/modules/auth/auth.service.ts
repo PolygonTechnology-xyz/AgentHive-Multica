@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Response } from 'express';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
@@ -27,6 +28,7 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private config: ConfigService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async register(dto: RegisterDto): Promise<{ message: string }> {
@@ -40,6 +42,7 @@ export class AuthService {
       displayName: dto.displayName,
     });
 
+    this.eventEmitter.emit('user.registered', { userId: user.id, role: user.role });
     const token = await this.usersService.createEmailVerification(user.id);
     // TODO: send email via NotificationsService when available
     // For now log the token (dev only)
