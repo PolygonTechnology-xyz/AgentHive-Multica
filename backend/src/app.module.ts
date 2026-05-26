@@ -14,6 +14,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { BidderAgentModule } from './modules/bidder-agent/bidder-agent.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { BullModule } from '@nestjs/bull';
 
 @Module({
@@ -46,6 +47,7 @@ import { BullModule } from '@nestjs/bull';
     AuthModule,
     JobsModule,
     BidderAgentModule,
+    PaymentsModule,
   ],
   controllers: [HealthController],
   providers: [
