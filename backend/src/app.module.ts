@@ -13,6 +13,8 @@ import { HealthController } from './health/health.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { BidderAgentModule } from './modules/bidder-agent/bidder-agent.module';
+import { BullModule } from '@nestjs/bull';
 
 @Module({
   imports: [
@@ -23,6 +25,16 @@ import { JobsModule } from './modules/jobs/jobs.module';
       ignoreEnvFile: process.env.NODE_ENV === 'test',
     }),
     EventEmitterModule.forRoot(),
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        redis: {
+          host: config.get('redis.host'),
+          port: config.get<number>('redis.port'),
+          password: config.get('redis.password'),
+        },
+      }),
+    }),
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
@@ -33,6 +45,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
     UsersModule,
     AuthModule,
     JobsModule,
+    BidderAgentModule,
   ],
   controllers: [HealthController],
   providers: [
