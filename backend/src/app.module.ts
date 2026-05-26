@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { BullModule } from '@nestjs/bull';
 import configuration from './config/configuration';
 import { validate } from './config/config.validation';
 import { DatabaseModule } from './database/database.module';
@@ -19,7 +20,8 @@ import { DispatchModule } from './modules/dispatch/dispatch.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { ReviewModule } from './modules/review/review.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-import { BullModule } from '@nestjs/bull';
+import { DisputesModule } from './modules/disputes/disputes.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -55,6 +57,9 @@ import { BullModule } from '@nestjs/bull';
     DispatchModule,
     DeliveryModule,
     ReviewModule,
+    NotificationsModule,
+    DisputesModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [
