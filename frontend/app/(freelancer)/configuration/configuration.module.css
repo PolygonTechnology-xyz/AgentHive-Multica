@@ -1,0 +1,23 @@
+.page { max-width: 800px; margin: 0 auto; padding: 40px 24px; }
+.loading { display: flex; justify-content: center; padding: 80px 0; }
+.title { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
+.sub { font-size: 14px; color: var(--text-dim); margin: 0 0 28px; }
+.error { padding: 12px 14px; border-radius: var(--radius-sm); background: rgba(239, 68, 68, 0.10); border: 1px solid rgba(239, 68, 68, 0.25); color: var(--error); font-size: 14px; margin-bottom: 20px; }
+.successMsg { padding: 12px 14px; border-radius: var(--radius-sm); background: var(--accent-deep); border: 1px solid rgba(0, 255, 136, 0.25); color: var(--accent); font-size: 14px; font-weight: 600; margin-bottom: 20px; }
+.form { display: flex; flex-direction: column; gap: 20px; }
+.card { padding: 28px; display: flex; flex-direction: column; gap: 16px; }
+.sectionTitle { font-size: 16px; font-weight: 700; margin: 0; }
+.hint { font-size: 13px; color: var(--text-dim); margin: 0; line-height: 1.5; }
+.textarea { background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 12px 14px; color: var(--text); font-size: 14px; resize: vertical; width: 100%; line-height: 1.6; font-family: inherit; }
+.textarea:focus { outline: none; border-color: var(--violet); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+.fieldLabel { display: block; font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+.sliderRow { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.slider { flex: 1; accent-color: var(--violet); cursor: pointer; }
+.sliderVal { font-size: 18px; font-weight: 700; color: var(--violet); min-width: 32px; text-align: right; }
+.toggle { display: flex; align-items: center; gap: 12px; width: 88px; height: 36px; border-radius: 18px; background: var(--bg-2); border: 1.5px solid var(--border-strong); padding: 4px; cursor: pointer; transition: all 160ms; margin-bottom: 8px; }
+.toggle.on { background: var(--accent-deep); border-color: var(--accent); }
+.thumb { width: 26px; height: 26px; border-radius: 50%; background: var(--text-faint); transition: all 160ms; }
+.toggle.on .thumb { background: var(--accent); transform: translateX(52px); }
+.toggleLabel { font-size: 13px; font-weight: 600; color: var(--text-dim); position: absolute; margin-left: 44px; }
+.saveRow { display: flex; justify-content: flex-end; }
