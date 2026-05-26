@@ -34,8 +34,12 @@ export class AdminController {
   }
 
   @Patch('users/:id/status')
-  setUserStatus(@Param('id') id: string, @Body('status') status: UserStatus) {
-    return this.adminService.setUserStatus(id, status);
+  setUserStatus(
+    @Param('id') id: string,
+    @Body('status') status: UserStatus,
+    @CurrentUser() admin: User,
+  ) {
+    return this.adminService.setUserStatus(id, status, admin.id);
   }
 
   @Get('users/:id/view')
@@ -78,5 +82,31 @@ export class AdminController {
     @CurrentUser() admin: User,
   ) {
     return this.adminService.resolveDispute(id, dto, admin.id);
+  }
+
+  @Get('queue-health')
+  getQueueHealth() {
+    return this.adminService.getQueueHealth();
+  }
+
+  @Get('audit-logs')
+  listAuditLogs(
+    @Query('page') page = 1,
+    @Query('limit') limit = 50,
+    @Query('actorId') actorId?: string,
+    @Query('resourceType') resourceType?: string,
+    @Query('resourceId') resourceId?: string,
+    @Query('since') since?: string,
+    @Query('until') until?: string,
+  ) {
+    return this.adminService.listAuditLogs({
+      page: Number(page),
+      limit: Number(limit),
+      actorId,
+      resourceType,
+      resourceId,
+      since,
+      until,
+    });
   }
 }
