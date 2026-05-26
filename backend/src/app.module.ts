@@ -18,6 +18,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { DispatchModule } from './modules/dispatch/dispatch.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { ReviewModule } from './modules/review/review.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { BullModule } from '@nestjs/bull';
 
 @Module({
