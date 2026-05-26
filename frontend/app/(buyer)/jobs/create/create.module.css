@@ -1,0 +1,13 @@
+.page { max-width: 720px; margin: 0 auto; padding: 40px 24px; }
+.card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 40px; }
+.title { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
+.sub { font-size: 14px; color: var(--text-dim); margin: 0 0 28px; }
+.error { padding: 12px 14px; border-radius: var(--radius-sm); background: rgba(239, 68, 68, 0.10); border: 1px solid rgba(239, 68, 68, 0.25); color: var(--error); font-size: 14px; margin-bottom: 20px; }
+.form { display: flex; flex-direction: column; gap: 18px; }
+.fieldLabel { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; }
+.textarea { background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 10px 14px; color: var(--text); font-size: 14px; resize: vertical; transition: border-color 140ms; }
+.textarea:focus { outline: none; border-color: var(--accent); }
+.select { background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 10px 14px; color: var(--text); font-size: 14px; height: 44px; cursor: pointer; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 100px; gap: 16px; }
+.actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 8px; }

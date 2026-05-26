@@ -1,0 +1,15 @@
+.page { max-width: 720px; margin: 0 auto; padding: 40px 24px; }
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.title { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
+.unreadBadge { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--error); color: #fff; }
+.loading { display: flex; justify-content: center; padding: 60px; }
+.empty { padding: 40px; text-align: center; color: var(--text-dim); }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.item { display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px; background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: border-color 140ms; }
+.item:hover { border-color: var(--border-strong); }
+.item.unread { border-left: 3px solid var(--accent); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 5px; }
+.content { flex: 1; }
+.notifTitle { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.notifBody { font-size: 13px; color: var(--text-dim); line-height: 1.5; margin-bottom: 6px; }
+.notifTime { font-size: 11px; color: var(--text-faint); }
