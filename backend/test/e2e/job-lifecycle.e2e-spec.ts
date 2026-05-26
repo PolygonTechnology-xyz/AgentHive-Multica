@@ -67,7 +67,8 @@ describe('Job Lifecycle (e2e)', () => {
     // 200 = email verified; 401 = pending verify (expected in isolated test env)
     expect([200, 401]).toContain(res.status);
     if (res.status === 200) {
-      buyerCookie = res.headers['set-cookie']?.join('; ') ?? '';
+      const sc = res.headers['set-cookie'];
+      buyerCookie = (Array.isArray(sc) ? sc : sc ? [sc] : []).join('; ');
     }
   });
 
@@ -77,7 +78,8 @@ describe('Job Lifecycle (e2e)', () => {
       .send({ email: freelancerEmail, password });
     expect([200, 401]).toContain(res.status);
     if (res.status === 200) {
-      freelancerCookie = res.headers['set-cookie']?.join('; ') ?? '';
+      const sc = res.headers['set-cookie'];
+      freelancerCookie = (Array.isArray(sc) ? sc : sc ? [sc] : []).join('; ');
     }
   });
 

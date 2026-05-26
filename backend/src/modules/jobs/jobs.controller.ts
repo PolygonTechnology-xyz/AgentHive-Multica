@@ -9,6 +9,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiCookieAuth,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -20,6 +27,7 @@ import { CreateJobDto } from './dto/create-job.dto';
 import { FilterJobsDto } from './dto/filter-jobs.dto';
 import { CreateBidDto } from '../bids/dto/create-bid.dto';
 
+@ApiTags('Jobs')
 @Controller('jobs')
 export class JobsController {
   constructor(
@@ -27,6 +35,9 @@ export class JobsController {
     private bidsService: BidsService,
   ) {}
 
+  @ApiOperation({ summary: 'Create a job (buyer only)' })
+  @ApiBearerAuth('JWT')
+  @ApiCookieAuth('access_token')
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('buyer')
@@ -34,11 +45,15 @@ export class JobsController {
     return this.jobsService.create(user.id, dto);
   }
 
+  @ApiOperation({ summary: 'Public job board — paginated list with filters' })
   @Get()
   findAll(@Query() filter: FilterJobsDto) {
     return this.jobsService.findAll(filter);
   }
 
+  @ApiOperation({ summary: 'List my posted jobs (buyer)' })
+  @ApiBearerAuth('JWT')
+  @ApiCookieAuth('access_token')
   @Get('mine')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('buyer')
@@ -46,11 +61,16 @@ export class JobsController {
     return this.jobsService.findByBuyer(user.id);
   }
 
+  @ApiOperation({ summary: 'Get job detail' })
+  @ApiParam({ name: 'id', format: 'uuid' })
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.jobsService.findById(id);
   }
 
+  @ApiOperation({ summary: 'Update job (buyer, owner only)' })
+  @ApiBearerAuth('JWT')
+  @ApiCookieAuth('access_token')
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('buyer')
@@ -62,6 +82,9 @@ export class JobsController {
     return this.jobsService.update(id, user.id, dto);
   }
 
+  @ApiOperation({ summary: 'Cancel job (buyer, owner only)' })
+  @ApiBearerAuth('JWT')
+  @ApiCookieAuth('access_token')
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('buyer')
@@ -69,6 +92,9 @@ export class JobsController {
     return this.jobsService.cancel(id, user.id);
   }
 
+  @ApiOperation({ summary: 'Place a bid on a job (freelancer only)' })
+  @ApiBearerAuth('JWT')
+  @ApiCookieAuth('access_token')
   @Post(':id/bids')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('freelancer')
@@ -80,12 +106,18 @@ export class JobsController {
     return this.bidsService.create(jobId, user.id, dto);
   }
 
+  @ApiOperation({ summary: 'List bids on a job (job owner sees all, others see their own)' })
+  @ApiBearerAuth('JWT')
+  @ApiCookieAuth('access_token')
   @Get(':id/bids')
   @UseGuards(JwtAuthGuard)
   getBids(@Param('id') jobId: string, @CurrentUser() user: User) {
     return this.bidsService.findByJob(jobId, user.id, user.role);
   }
 
+  @ApiOperation({ summary: 'Accept a bid (buyer only) — triggers payment escrow flow' })
+  @ApiBearerAuth('JWT')
+  @ApiCookieAuth('access_token')
   @Patch(':id/bids/:bidId/accept')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('buyer')
@@ -97,6 +129,9 @@ export class JobsController {
     return this.bidsService.accept(jobId, bidId, user.id);
   }
 
+  @ApiOperation({ summary: 'Reject a bid (buyer only)' })
+  @ApiBearerAuth('JWT')
+  @ApiCookieAuth('access_token')
   @Patch(':id/bids/:bidId/reject')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('buyer')
