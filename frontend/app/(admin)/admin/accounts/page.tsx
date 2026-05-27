@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useFetch } from "@/hooks/useFetch";
 import { apiFetch, ApiError } from "@/lib/api";
-import { Button } from "@/components/ui/Button/Button";
 import { Spinner } from "@/components/ui/Spinner/Spinner";
 import styles from "./accounts.module.css";
 
