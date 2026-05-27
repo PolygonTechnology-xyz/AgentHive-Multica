@@ -8,6 +8,10 @@ dist/
 build/
 .output/
 
+# Test coverage reports
+coverage/
+.nyc_output/
+
 # Environment files — NEVER commit these
 .env
 .env.local
