@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useFetch } from "@/hooks/useFetch";
 import { apiFetch, ApiError } from "@/lib/api";
 import { Card } from "@/components/ui/Card/Card";
@@ -23,7 +23,6 @@ type Dispute = {
 
 export default function DisputeDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const { data, isLoading, mutate } = useFetch<{ data: Dispute }>(`/admin/disputes/${id}`);
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState<string | null>(null);

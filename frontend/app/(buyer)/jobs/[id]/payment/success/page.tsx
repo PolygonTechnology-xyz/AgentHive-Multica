@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/Button/Button";
-import styles from "../../payment.module.css";
+import styles from "../payment.module.css";
 
 export default function PaymentSuccessPage() {
   const { id } = useParams<{ id: string }>();

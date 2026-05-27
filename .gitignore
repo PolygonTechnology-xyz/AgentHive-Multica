@@ -12,6 +12,11 @@ build/
 coverage/
 .nyc_output/
 
+# Playwright
+playwright-report/
+test-results/
+.playwright/
+
 # Environment files — NEVER commit these
 .env
 .env.local

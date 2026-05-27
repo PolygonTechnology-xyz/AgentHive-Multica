@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useFetch } from "@/hooks/useFetch";
 import { apiFetch, ApiError } from "@/lib/api";
 import { Card } from "@/components/ui/Card/Card";
@@ -14,7 +14,6 @@ type Delivery = { id: string; note: string; status: string; revisionRound: numbe
 
 export default function FreelancerJobDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const { data: jobData, isLoading } = useFetch<{ data: Job }>(`/jobs/${id}`);
   const { data: deliveryData, mutate } = useFetch<{ data: Delivery[] }>(`/deliveries?jobId=${id}`);
 
@@ -25,7 +24,6 @@ export default function FreelancerJobDetailPage() {
 
   const job = jobData?.data;
   const deliveries = deliveryData?.data ?? [];
-  const latestDelivery = deliveries[0];
 
   async function submitDelivery(e: FormEvent) {
     e.preventDefault();

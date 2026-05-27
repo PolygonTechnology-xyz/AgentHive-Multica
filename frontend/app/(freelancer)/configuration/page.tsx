@@ -4,7 +4,6 @@ import { useState, useEffect, FormEvent } from "react";
 import { useFetch } from "@/hooks/useFetch";
 import { apiFetch, ApiError } from "@/lib/api";
 import { Card } from "@/components/ui/Card/Card";
-import { Input } from "@/components/ui/Input/Input";
 import { Button } from "@/components/ui/Button/Button";
 import { Spinner } from "@/components/ui/Spinner/Spinner";
 import styles from "./configuration.module.css";
