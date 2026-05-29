@@ -7,7 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        type: 'mysql',
+        type: 'postgres',
         host: config.get('database.host'),
         port: config.get<number>('database.port'),
         username: config.get('database.username'),
@@ -16,8 +16,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         entities: [__dirname + '/../**/*.entity{.ts,.js}'],
         synchronize: config.get<boolean>('database.synchronize'),
         logging: config.get<boolean>('database.logging'),
-        charset: 'utf8mb4',
-        timezone: 'Z',
       }),
     }),
   ],

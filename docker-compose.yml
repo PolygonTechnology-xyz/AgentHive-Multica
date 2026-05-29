@@ -1,19 +1,18 @@
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: agenthive-mysql
+  postgres:
+    image: postgres:16-alpine
+    container_name: agenthive-postgres
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_pass}
-      MYSQL_DATABASE: ${DB_DATABASE:-agenthive}
-      MYSQL_USER: ${DB_USERNAME:-agenthive}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-agenthive_pass}
+      POSTGRES_DB: ${DB_DATABASE:-agenthive}
+      POSTGRES_USER: ${DB_USERNAME:-agenthive}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-agenthive_pass}
     ports:
-      - "${DB_PORT:-3306}:3306"
+      - "${DB_PORT:-5432}:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-agenthive} -d ${DB_DATABASE:-agenthive}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,7 +38,7 @@ services:
     container_name: agenthive-api
     restart: unless-stopped
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -53,8 +52,8 @@ services:
       COOKIE_SECRET: ${COOKIE_SECRET:-change-me-cookie-secret}
       PAYMENT_GATEWAY: ${PAYMENT_GATEWAY:-mock}
       PLATFORM_FEE_PERCENT: ${PLATFORM_FEE_PERCENT:-10}
-      DB_HOST: mysql
-      DB_PORT: 3306
+      DB_HOST: postgres
+      DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-agenthive}
       DB_PASSWORD: ${DB_PASSWORD:-agenthive_pass}
       DB_DATABASE: ${DB_DATABASE:-agenthive}
@@ -94,5 +93,5 @@ services:
       - "${FRONTEND_PORT:-3000}:3000"
 
 volumes:
-  mysql_data:
+  postgres_data:
   redis_data:
