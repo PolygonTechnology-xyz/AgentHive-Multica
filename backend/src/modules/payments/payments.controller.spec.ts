@@ -9,7 +9,11 @@ describe('PaymentsController', () => {
   beforeEach(async () => {
     svc = {
       findByUser: jest.fn().mockResolvedValue([]),
-      fundEscrow: jest.fn().mockResolvedValue({ id: 'p' }),
+      fundEscrow: jest.fn().mockResolvedValue({
+        payment: { id: 'p', ppayReference: 'PID' },
+        redirectUrl: 'http://gateway/page',
+      }),
+      queryAndReconcile: jest.fn().mockResolvedValue({ id: 'p' }),
       release: jest.fn().mockResolvedValue({ id: 'p' }),
       refund: jest.fn().mockResolvedValue({ id: 'p' }),
     };
@@ -25,9 +29,18 @@ describe('PaymentsController', () => {
     expect(svc.findByUser).toHaveBeenCalledWith('u');
   });
 
-  it('delegates fundEscrow', async () => {
-    await controller.fundEscrow({ id: 'u' } as any, { jobId: 'j', idempotencyKey: 'k' } as any);
+  it('fundEscrow returns paymentId + redirectUrl', async () => {
+    const result = await controller.fundEscrow(
+      { id: 'u' } as any,
+      { jobId: 'j', idempotencyKey: 'k' } as any,
+    );
     expect(svc.fundEscrow).toHaveBeenCalledWith('u', 'j', 'k');
+    expect(result).toEqual({ paymentId: 'p', ppayReference: 'PID', redirectUrl: 'http://gateway/page' });
+  });
+
+  it('delegates reconcile', async () => {
+    await controller.reconcile({ id: 'u' } as any, 'p');
+    expect(svc.queryAndReconcile).toHaveBeenCalledWith('p');
   });
 
   it('delegates release', async () => {

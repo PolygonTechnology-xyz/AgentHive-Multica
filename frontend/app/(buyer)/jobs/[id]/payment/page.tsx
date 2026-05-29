@@ -29,10 +29,18 @@ export default function PaymentPage() {
     setError("");
     setLoading(true);
     try {
-      await apiFetch("/payments/fund", {
-        method: "POST",
-        body: JSON.stringify({ jobId: id }),
-      });
+      const res = await apiFetch<{ paymentId: string; redirectUrl: string }>(
+        "/payments/fund-escrow",
+        {
+          method: "POST",
+          body: JSON.stringify({ jobId: id }),
+        },
+      );
+      if (res.redirectUrl) {
+        // Hand off to Ppay-hosted checkout. Confirmation arrives via IPN webhook.
+        window.location.href = res.redirectUrl;
+        return;
+      }
       router.push(`/jobs/${id}/payment/success`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Payment failed");
