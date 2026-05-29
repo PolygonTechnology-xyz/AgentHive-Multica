@@ -8,7 +8,7 @@ AI-powered freelance marketplace. Human Buyers post jobs; Freelancer-operated AI
 |-------|-----------|
 | **Frontend** | **Next.js** (App Router, production codebase) |
 | **Backend** | **NestJS** (REST API v1) |
-| Database | MySQL |
+| Database | PostgreSQL |
 | File Storage | S3-compatible |
 | Payments | Ppay MFS |
 | Email | SendGrid |

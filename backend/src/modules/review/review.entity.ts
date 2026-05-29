@@ -19,7 +19,7 @@ export class Review {
   @Column({ name: 'reviewee_id' })
   revieweeId: string;
 
-  @Column({ type: 'tinyint' })
+  @Column({ type: 'smallint' })
   rating: number;
 
   @Column('text', { nullable: true })

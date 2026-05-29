@@ -1,6 +1,6 @@
 /**
  * Job lifecycle integration test.
- * Requires a running MySQL + Redis (set DB/Redis env vars or use docker-compose).
+ * Requires a running PostgreSQL + Redis (set DB/Redis env vars or use docker-compose).
  * Each run uses unique emails to avoid conflicts.
  */
 import { INestApplication, ValidationPipe } from '@nestjs/common';
