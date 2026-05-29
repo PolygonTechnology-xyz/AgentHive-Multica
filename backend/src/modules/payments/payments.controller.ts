@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards, Headers } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCookieAuth,
@@ -20,7 +20,7 @@ class FundEscrowDto {
 
   @ApiPropertyOptional({
     description: 'Client-generated key to dedupe retries',
-    example: 'fund-2026-05-26-001',
+    example: 'fund-2026-05-29-001',
   })
   @IsOptional()
   @IsString()
@@ -42,13 +42,27 @@ export class PaymentsController {
   }
 
   @ApiOperation({
-    summary: 'Fund escrow for an accepted bid',
+    summary: 'Initiate Ppay escrow checkout — returns redirectUrl',
     description:
-      'Uses configured PAYMENT_GATEWAY (mock|ppay). Returns gateway URL/status. Idempotent via idempotencyKey.',
+      'Creates a PENDING payment and returns the Ppay-hosted checkout URL. ' +
+      'The buyer browser must be redirected to that URL. Confirmation is asynchronous via Ppay IPN webhook.',
   })
   @Post('fund-escrow')
-  fundEscrow(@CurrentUser() user: User, @Body() dto: FundEscrowDto) {
-    return this.paymentsService.fundEscrow(user.id, dto.jobId, dto.idempotencyKey);
+  async fundEscrow(@CurrentUser() user: User, @Body() dto: FundEscrowDto) {
+    const { payment, redirectUrl } = await this.paymentsService.fundEscrow(
+      user.id,
+      dto.jobId,
+      dto.idempotencyKey,
+    );
+    return { paymentId: payment.id, ppayReference: payment.ppayReference, redirectUrl };
+  }
+
+  @ApiOperation({
+    summary: 'Force a Ppay status query and reconcile (use if IPN never arrived)',
+  })
+  @Post(':id/reconcile')
+  reconcile(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.paymentsService.queryAndReconcile(id);
   }
 
   @ApiOperation({ summary: 'Release escrow to freelancer (buyer only, on delivery approval)' })
@@ -57,7 +71,7 @@ export class PaymentsController {
     return this.paymentsService.release(id, user.id);
   }
 
-  @ApiOperation({ summary: 'Refund escrow to buyer (admin or dispute resolution flow)' })
+  @ApiOperation({ summary: 'Refund escrow to buyer (Ppay refund flow)' })
   @Post(':id/refund')
   refund(@CurrentUser() user: User, @Param('id') id: string) {
     return this.paymentsService.refund(id, user.id);

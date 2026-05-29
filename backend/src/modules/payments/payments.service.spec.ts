@@ -7,7 +7,7 @@ import { DataSource } from 'typeorm';
 import { PaymentsService } from './payments.service';
 import { Payment, PaymentStatus } from './payment.entity';
 import { Job, JobStatus } from '../jobs/job.entity';
-import { Bid, BidStatus } from '../bids/bid.entity';
+import { Bid } from '../bids/bid.entity';
 import { PAYMENT_GATEWAY_TOKEN } from './adapters/payment-gateway.interface';
 
 describe('PaymentsService', () => {
@@ -28,10 +28,22 @@ describe('PaymentsService', () => {
     bidRepo = {};
     gateway = {
       createPayment: jest.fn(),
-      confirmPayment: jest.fn(),
+      queryPayment: jest.fn(),
       refund: jest.fn(),
+      initiatePayout: jest.fn(),
     };
-    config = { get: jest.fn(() => 10) };
+    config = {
+      get: jest.fn((k: string) => {
+        const map: Record<string, any> = {
+          'payment.feePct': 10,
+          'ppay.ipnUrl': 'http://x/ipn',
+          'ppay.successUrl': 'http://x/s',
+          'ppay.failUrl': 'http://x/f',
+          'ppay.cancelUrl': 'http://x/c',
+        };
+        return map[k];
+      }),
+    };
     emitter = { emit: jest.fn() };
     txManager = {
       findOne: jest.fn(),
@@ -66,47 +78,155 @@ describe('PaymentsService', () => {
       txManager.findOne.mockResolvedValueOnce({ id: 'j', title: 'T' });
       txManager.findOne.mockResolvedValueOnce({ id: 'p-existing' });
       const result = await service.fundEscrow('b', 'j', 'key1');
-      expect(result.id).toBe('p-existing');
+      expect(result.payment.id).toBe('p-existing');
       expect(gateway.createPayment).not.toHaveBeenCalled();
     });
 
     it('throws BadRequestException when no accepted bid', async () => {
       txManager.findOne.mockResolvedValueOnce({ id: 'j', title: 'T' });
-      // no idempotency key -> skip idempotency lookup
-      txManager.findOne.mockResolvedValueOnce(null); // accepted bid
+      txManager.findOne.mockResolvedValueOnce(null);
       await expect(service.fundEscrow('b', 'j')).rejects.toThrow(BadRequestException);
     });
 
-    it('creates payment with HELD status and emits payment.held on gateway success', async () => {
+    it('creates PENDING payment + returns redirectUrl from gateway', async () => {
       txManager.findOne.mockResolvedValueOnce({ id: 'j', title: 'T' });
-      txManager.findOne.mockResolvedValueOnce({ id: 'b', amount: 1000, currency: 'BDT', bidderId: 'f' });
-      gateway.createPayment.mockResolvedValue({ gatewayReference: 'gref', status: 'pending' });
-      gateway.confirmPayment.mockResolvedValue({ transactionId: 'tx1', status: 'success' });
-      const result: any = await service.fundEscrow('b', 'j');
-      expect(result.status).toBe(PaymentStatus.HELD);
-      expect(result.platformFee).toBe(100); // 10% of 1000
+      txManager.findOne.mockResolvedValueOnce({
+        id: 'b',
+        amount: 1000,
+        currency: 'BDT',
+        bidderId: 'f',
+      });
+      gateway.createPayment.mockResolvedValue({
+        gatewayReference: 'PID',
+        redirectUrl: 'http://gateway/page',
+        status: 'pending',
+      });
+      const result = await service.fundEscrow('b', 'j');
+      expect(result.payment.status).toBe(PaymentStatus.PENDING);
+      expect(result.payment.platformFee).toBe(100);
+      expect(result.redirectUrl).toBe('http://gateway/page');
+      // Job stays DISPATCHED until IPN flips to IN_PROGRESS
+      expect(txManager.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleIpn', () => {
+    it('rejects malformed payload', async () => {
+      await expect(service.handleIpn({} as any)).rejects.toThrow(BadRequestException);
+    });
+
+    it('acks unknown paymentId without processing', async () => {
+      txManager.findOne.mockResolvedValue(null);
+      const result = await service.handleIpn({
+        paymentId: 'PID',
+        uniqueIdForMerchant: 'order',
+        status: 'SUCCESSFUL',
+      });
+      expect(result).toEqual({ ok: true, processed: false });
+    });
+
+    it('SUCCESSFUL transitions PENDING → HELD and updates Job', async () => {
+      const payment = {
+        id: 'p',
+        status: PaymentStatus.PENDING,
+        jobId: 'j',
+        ppayTransactionId: null as any,
+        heldAt: null as any,
+      };
+      txManager.findOne.mockResolvedValue(payment);
+      const result = await service.handleIpn({
+        paymentId: 'PID',
+        uniqueIdForMerchant: 'o',
+        status: 'SUCCESSFUL',
+        transactionId: 'TXN1',
+      });
+      expect(result.processed).toBe(true);
+      expect(payment.status).toBe(PaymentStatus.HELD);
+      expect(payment.ppayTransactionId).toBe('TXN1');
       expect(txManager.update).toHaveBeenCalledWith(Job, 'j', { status: JobStatus.IN_PROGRESS });
       expect(emitter.emit).toHaveBeenCalledWith('payment.held', expect.any(Object));
     });
 
-    it('creates payment with PENDING status when gateway confirm fails', async () => {
-      txManager.findOne.mockResolvedValueOnce({ id: 'j', title: 'T' });
-      txManager.findOne.mockResolvedValueOnce({ id: 'b', amount: 500, currency: 'BDT', bidderId: 'f' });
-      gateway.createPayment.mockResolvedValue({ gatewayReference: 'gref', status: 'pending' });
-      gateway.confirmPayment.mockResolvedValue({ transactionId: 'tx', status: 'failed' });
-      const result: any = await service.fundEscrow('b', 'j');
-      expect(result.status).toBe(PaymentStatus.PENDING);
-      expect(emitter.emit).not.toHaveBeenCalled();
+    it('duplicate SUCCESSFUL is idempotent', async () => {
+      const payment = { id: 'p', status: PaymentStatus.HELD, jobId: 'j' };
+      txManager.findOne.mockResolvedValue(payment);
+      const result = await service.handleIpn({
+        paymentId: 'PID',
+        uniqueIdForMerchant: 'o',
+        status: 'SUCCESSFUL',
+      });
+      expect(result).toEqual({ ok: true, processed: false });
+      expect(txManager.update).not.toHaveBeenCalled();
     });
 
-    it('uses default fee% when config missing', async () => {
-      config.get.mockReturnValue(undefined);
-      txManager.findOne.mockResolvedValueOnce({ id: 'j', title: 'T' });
-      txManager.findOne.mockResolvedValueOnce({ id: 'b', amount: 100, currency: 'BDT', bidderId: 'f' });
-      gateway.createPayment.mockResolvedValue({ gatewayReference: 'g', status: 'pending' });
-      gateway.confirmPayment.mockResolvedValue({ transactionId: 't', status: 'success' });
-      const result: any = await service.fundEscrow('b', 'j');
-      expect(result.platformFee).toBe(10);
+    it('FAILED emits event but does not advance state', async () => {
+      const payment = { id: 'p', status: PaymentStatus.PENDING, jobId: 'j' };
+      txManager.findOne.mockResolvedValue(payment);
+      const result = await service.handleIpn({
+        paymentId: 'PID',
+        uniqueIdForMerchant: 'o',
+        status: 'FAILED',
+        failReason: 'no balance',
+      });
+      expect(result.processed).toBe(true);
+      expect(payment.status).toBe(PaymentStatus.PENDING);
+      expect(emitter.emit).toHaveBeenCalledWith(
+        'payment.failed',
+        expect.objectContaining({ reason: 'no balance' }),
+      );
+    });
+
+    it('CANCELLED on already-processed payment is idempotent', async () => {
+      const payment = { id: 'p', status: PaymentStatus.HELD, jobId: 'j' };
+      txManager.findOne.mockResolvedValue(payment);
+      const result = await service.handleIpn({
+        paymentId: 'PID',
+        uniqueIdForMerchant: 'o',
+        status: 'CANCELLED',
+      });
+      expect(result).toEqual({ ok: true, processed: false });
+    });
+
+    it('INITIATED is a no-op ack', async () => {
+      const payment = { id: 'p', status: PaymentStatus.PENDING, jobId: 'j' };
+      txManager.findOne.mockResolvedValue(payment);
+      const result = await service.handleIpn({
+        paymentId: 'PID',
+        uniqueIdForMerchant: 'o',
+        status: 'INITIATED',
+      });
+      expect(result).toEqual({ ok: true, processed: false });
+    });
+  });
+
+  describe('queryAndReconcile', () => {
+    it('short-circuits when payment not pending', async () => {
+      paymentRepo.findOne.mockResolvedValue({ id: 'p', status: PaymentStatus.HELD });
+      const result = await service.queryAndReconcile('p');
+      expect(result.status).toBe(PaymentStatus.HELD);
+      expect(gateway.queryPayment).not.toHaveBeenCalled();
+    });
+
+    it('queries gateway and applies SUCCESSFUL transition', async () => {
+      paymentRepo.findOne
+        .mockResolvedValueOnce({ id: 'p', status: PaymentStatus.PENDING, ppayReference: 'PID' })
+        .mockResolvedValueOnce({ id: 'p', status: PaymentStatus.HELD });
+      gateway.queryPayment.mockResolvedValue({
+        gatewayReference: 'PID',
+        uniqueIdForMerchant: 'o',
+        status: 'SUCCESSFUL',
+        transactionId: 'T',
+      });
+      const payment = {
+        id: 'p',
+        status: PaymentStatus.PENDING,
+        jobId: 'j',
+        ppayTransactionId: null as any,
+        heldAt: null as any,
+      };
+      txManager.findOne.mockResolvedValue(payment);
+      await service.queryAndReconcile('p');
+      expect(gateway.queryPayment).toHaveBeenCalledWith('PID');
     });
   });
 
@@ -126,16 +246,15 @@ describe('PaymentsService', () => {
       await expect(service.release('p', 'me')).rejects.toThrow(BadRequestException);
     });
 
-    it('throws BadRequestException when gateway release fails', async () => {
-      txManager.findOne.mockResolvedValue({ id: 'p', buyerId: 'me', status: PaymentStatus.HELD, ppayReference: 'r' });
-      gateway.confirmPayment.mockResolvedValue({ transactionId: 't', status: 'failed' });
-      await expect(service.release('p', 'me')).rejects.toThrow(BadRequestException);
-    });
-
     it('releases payment and emits event', async () => {
-      const payment: any = { id: 'p', buyerId: 'me', status: PaymentStatus.HELD, jobId: 'j', ppayReference: 'r' };
+      const payment: any = {
+        id: 'p',
+        buyerId: 'me',
+        status: PaymentStatus.HELD,
+        jobId: 'j',
+        ppayReference: 'r',
+      };
       txManager.findOne.mockResolvedValue(payment);
-      gateway.confirmPayment.mockResolvedValue({ transactionId: 't', status: 'success' });
       await service.release('p', 'me');
       expect(payment.status).toBe(PaymentStatus.RELEASED);
       expect(payment.releasedAt).toBeInstanceOf(Date);
@@ -154,16 +273,28 @@ describe('PaymentsService', () => {
       await expect(service.refund('p', 'me')).rejects.toThrow(ForbiddenException);
     });
 
-    it('throws BadRequestException when gateway refund fails', async () => {
-      txManager.findOne.mockResolvedValue({ id: 'p', buyerId: 'me', status: PaymentStatus.HELD, amount: 100, ppayReference: 'r' });
-      gateway.refund.mockResolvedValue({ refundId: 'rf', status: 'failed' });
+    it('throws BadRequestException when gateway returns FAILED', async () => {
+      txManager.findOne.mockResolvedValue({
+        id: 'p',
+        buyerId: 'me',
+        status: PaymentStatus.HELD,
+        amount: 100,
+        ppayReference: 'r',
+      });
+      gateway.refund.mockResolvedValue({ refundId: 'rf', status: 'FAILED', refundFailReason: 'gw' });
       await expect(service.refund('p', 'me')).rejects.toThrow(BadRequestException);
     });
 
-    it('refunds payment', async () => {
-      const payment: any = { id: 'p', buyerId: 'me', status: PaymentStatus.HELD, amount: 100, ppayReference: 'r' };
+    it('refunds payment on INITIATED/SUCCESSFUL', async () => {
+      const payment: any = {
+        id: 'p',
+        buyerId: 'me',
+        status: PaymentStatus.HELD,
+        amount: 100,
+        ppayReference: 'r',
+      };
       txManager.findOne.mockResolvedValue(payment);
-      gateway.refund.mockResolvedValue({ refundId: 'rf', status: 'success' });
+      gateway.refund.mockResolvedValue({ refundId: 'rf', status: 'INITIATED' });
       await service.refund('p', 'me');
       expect(payment.status).toBe(PaymentStatus.REFUNDED);
       expect(payment.refundedAt).toBeInstanceOf(Date);
@@ -188,21 +319,18 @@ describe('PaymentsService', () => {
     });
   });
 
-  describe('findByUser', () => {
+  describe('findByUser / findById', () => {
     it('returns payments for buyer or freelancer', async () => {
       paymentRepo.find.mockResolvedValue([{ id: 'p1' }]);
       const result = await service.findByUser('u');
       expect(result).toHaveLength(1);
     });
-  });
-
-  describe('findById', () => {
-    it('returns payment', async () => {
+    it('findById returns payment', async () => {
       paymentRepo.findOne.mockResolvedValue({ id: 'p' });
       const p = await service.findById('p');
       expect(p.id).toBe('p');
     });
-    it('throws NotFoundException when missing', async () => {
+    it('findById throws NotFoundException when missing', async () => {
       paymentRepo.findOne.mockResolvedValue(null);
       await expect(service.findById('p')).rejects.toThrow(NotFoundException);
     });

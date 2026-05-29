@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -16,13 +17,31 @@ import { PAYMENT_GATEWAY_TOKEN, PaymentGateway } from './adapters/payment-gatewa
 import { v4 as uuidv4 } from 'uuid';
 
 const VALID_TRANSITIONS: Partial<Record<PaymentStatus, PaymentStatus[]>> = {
-  [PaymentStatus.PENDING]: [PaymentStatus.HELD],
-  [PaymentStatus.HELD]: [PaymentStatus.RELEASED, PaymentStatus.REFUNDED, PaymentStatus.DISPUTED],
-  [PaymentStatus.DISPUTED]: [PaymentStatus.RELEASED, PaymentStatus.REFUNDED, PaymentStatus.PARTIALLY_REFUNDED],
+  [PaymentStatus.PENDING]: [PaymentStatus.HELD, PaymentStatus.REFUNDED],
+  [PaymentStatus.HELD]: [
+    PaymentStatus.RELEASED,
+    PaymentStatus.REFUNDED,
+    PaymentStatus.DISPUTED,
+  ],
+  [PaymentStatus.DISPUTED]: [
+    PaymentStatus.RELEASED,
+    PaymentStatus.REFUNDED,
+    PaymentStatus.PARTIALLY_REFUNDED,
+  ],
 };
+
+interface IpnPayload {
+  paymentId: string;
+  uniqueIdForMerchant: string;
+  status: 'INITIATED' | 'SUCCESSFUL' | 'FAILED' | 'CANCELLED';
+  transactionId?: string;
+  failReason?: string | null;
+}
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
     @InjectRepository(Job) private jobRepo: Repository<Job>,
@@ -33,18 +52,28 @@ export class PaymentsService {
     private eventEmitter: EventEmitter2,
   ) {}
 
-  async fundEscrow(buyerId: string, jobId: string, idempotencyKey?: string): Promise<Payment> {
+  /**
+   * Initiate escrow funding. Returns the gateway redirectUrl — the buyer's
+   * browser is sent there to complete payment. We DO NOT confirm here; the
+   * IPN webhook is the authoritative confirmation.
+   */
+  async fundEscrow(
+    buyerId: string,
+    jobId: string,
+    idempotencyKey?: string,
+  ): Promise<{ payment: Payment; redirectUrl: string }> {
     return this.dataSource.transaction(async (manager) => {
       const job = await manager.findOne(Job, {
         where: { id: jobId, buyerId, status: JobStatus.DISPATCHED },
         lock: { mode: 'pessimistic_write' },
       });
-
       if (!job) throw new NotFoundException('Job not found or not in dispatched state');
 
       if (idempotencyKey) {
         const existing = await manager.findOne(Payment, { where: { idempotencyKey } });
-        if (existing) return existing;
+        if (existing) {
+          return { payment: existing, redirectUrl: '' };
+        }
       }
 
       const acceptedBid = await manager.findOne(Bid, {
@@ -54,16 +83,24 @@ export class PaymentsService {
 
       const feePct = this.config.get<number>('payment.feePct') ?? 10;
       const amount = Number(acceptedBid.amount);
-      const platformFee = Number((amount * feePct / 100).toFixed(2));
+      const platformFee = Number(((amount * feePct) / 100).toFixed(2));
 
-      const gatewayResult = await this.gateway.createPayment({
+      const uniqueIdForMerchant = `job_${jobId}_${Date.now()}`;
+      const ipnUrl = this.config.get<string>('ppay.ipnUrl');
+      const successUrl = this.config.get<string>('ppay.successUrl');
+      const failUrl = this.config.get<string>('ppay.failUrl');
+      const cancelUrl = this.config.get<string>('ppay.cancelUrl');
+
+      const gw = await this.gateway.createPayment({
         amount,
         currency: acceptedBid.currency,
-        reference: `job_${jobId}`,
-        description: `Escrow for job ${job.title}`,
+        uniqueIdForMerchant,
+        purchaseInfo: `Escrow for job ${job.title}`.slice(0, 250),
+        ipnUrl,
+        successUrl,
+        failUrl,
+        cancelUrl,
       });
-
-      const confirmResult = await this.gateway.confirmPayment(gatewayResult.gatewayReference);
 
       const payment = manager.create(Payment, {
         id: uuidv4(),
@@ -73,22 +110,92 @@ export class PaymentsService {
         amount,
         platformFee,
         currency: acceptedBid.currency,
-        status: confirmResult.status === 'success' ? PaymentStatus.HELD : PaymentStatus.PENDING,
-        ppayReference: gatewayResult.gatewayReference,
-        ppayTransactionId: confirmResult.transactionId,
-        idempotencyKey: idempotencyKey ?? `auto_${jobId}`,
-        heldAt: new Date(),
+        status: PaymentStatus.PENDING,
+        ppayReference: gw.gatewayReference,
+        idempotencyKey: idempotencyKey ?? uniqueIdForMerchant,
+      });
+      await manager.save(payment);
+      return { payment, redirectUrl: gw.redirectUrl };
+    });
+  }
+
+  /**
+   * Authoritative payment-state transition driven by Ppay IPN webhook.
+   * Idempotent on gatewayReference (paymentId). Always returns 200 for
+   * already-processed payments per spec §4.
+   */
+  async handleIpn(payload: IpnPayload): Promise<{ ok: true; processed: boolean }> {
+    if (!payload || !payload.paymentId) {
+      throw new BadRequestException('Malformed IPN payload');
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const payment = await manager.findOne(Payment, {
+        where: { ppayReference: payload.paymentId },
+        lock: { mode: 'pessimistic_write' },
       });
 
-      await manager.save(payment);
-
-      if (payment.status === PaymentStatus.HELD) {
-        await manager.update(Job, jobId, { status: JobStatus.IN_PROGRESS });
-        this.eventEmitter.emit('payment.held', { paymentId: payment.id, jobId });
+      if (!payment) {
+        // Unknown payment (e.g. Ppay test event) — ack 200 per spec.
+        this.logger.warn(`IPN for unknown paymentId=${payload.paymentId}, acking`);
+        return { ok: true as const, processed: false };
       }
 
-      return payment;
+      switch (payload.status) {
+        case 'INITIATED':
+          // No-op acknowledgement.
+          return { ok: true as const, processed: false };
+
+        case 'SUCCESSFUL':
+          if (payment.status !== PaymentStatus.PENDING) {
+            // Duplicate callback — idempotent ack.
+            return { ok: true as const, processed: false };
+          }
+          this.assertTransition(payment.status, PaymentStatus.HELD);
+          payment.status = PaymentStatus.HELD;
+          payment.heldAt = new Date();
+          payment.ppayTransactionId = payload.transactionId ?? null;
+          await manager.save(payment);
+          await manager.update(Job, payment.jobId, { status: JobStatus.IN_PROGRESS });
+          this.eventEmitter.emit('payment.held', {
+            paymentId: payment.id,
+            jobId: payment.jobId,
+          });
+          return { ok: true as const, processed: true };
+
+        case 'FAILED':
+        case 'CANCELLED':
+          if (payment.status !== PaymentStatus.PENDING) {
+            return { ok: true as const, processed: false };
+          }
+          // Leave payment in PENDING for buyer retry; do not advance state.
+          this.eventEmitter.emit('payment.failed', {
+            paymentId: payment.id,
+            jobId: payment.jobId,
+            reason: payload.failReason ?? payload.status,
+          });
+          return { ok: true as const, processed: true };
+      }
+      return { ok: true as const, processed: false };
     });
+  }
+
+  /**
+   * Fallback when IPN doesn't arrive within expected window. Queries Ppay,
+   * applies the same state transition logic.
+   */
+  async queryAndReconcile(paymentId: string): Promise<Payment> {
+    const payment = await this.findById(paymentId);
+    if (payment.status !== PaymentStatus.PENDING) return payment;
+    const result = await this.gateway.queryPayment(payment.ppayReference);
+    await this.handleIpn({
+      paymentId: result.gatewayReference,
+      uniqueIdForMerchant: result.uniqueIdForMerchant,
+      status: result.status,
+      transactionId: result.transactionId,
+      failReason: result.failReason ?? null,
+    });
+    return this.findById(paymentId);
   }
 
   async release(paymentId: string, buyerId: string): Promise<Payment> {
@@ -97,43 +204,43 @@ export class PaymentsService {
         where: { id: paymentId },
         lock: { mode: 'pessimistic_write' },
       });
-
       if (!payment) throw new NotFoundException('Payment not found');
       if (payment.buyerId !== buyerId) throw new ForbiddenException();
       this.assertTransition(payment.status, PaymentStatus.RELEASED);
-
-      const result = await this.gateway.confirmPayment(payment.ppayReference);
-      if (result.status !== 'success') throw new BadRequestException('Gateway release failed');
 
       payment.status = PaymentStatus.RELEASED;
       payment.releasedAt = new Date();
       await manager.save(payment);
 
       await manager.update(Job, payment.jobId, { status: JobStatus.COMPLETED });
-      this.eventEmitter.emit('payment.released', { paymentId: payment.id, jobId: payment.jobId });
+      this.eventEmitter.emit('payment.released', {
+        paymentId: payment.id,
+        jobId: payment.jobId,
+      });
 
       return payment;
     });
   }
 
-  async refund(paymentId: string, requesterId: string): Promise<Payment> {
+  async refund(paymentId: string, requesterId: string, reason = 'Buyer-initiated refund'): Promise<Payment> {
     return this.dataSource.transaction(async (manager) => {
       const payment = await manager.findOne(Payment, {
         where: { id: paymentId },
         lock: { mode: 'pessimistic_write' },
       });
-
       if (!payment) throw new NotFoundException('Payment not found');
       if (payment.buyerId !== requesterId) throw new ForbiddenException();
       this.assertTransition(payment.status, PaymentStatus.REFUNDED);
 
-      const result = await this.gateway.refund(payment.ppayReference, Number(payment.amount));
-      if (result.status !== 'success') throw new BadRequestException('Gateway refund failed');
+      const ipnUrl = this.config.get<string>('ppay.ipnUrl');
+      const result = await this.gateway.refund(payment.ppayReference, ipnUrl, reason);
+      if (result.status === 'FAILED' || result.status === 'CANCELLED') {
+        throw new BadRequestException(`Gateway refund failed: ${result.refundFailReason ?? result.status}`);
+      }
 
       payment.status = PaymentStatus.REFUNDED;
       payment.refundedAt = new Date();
       await manager.save(payment);
-
       return payment;
     });
   }

@@ -42,9 +42,15 @@ export default () => ({
   },
 
   ppay: {
-    apiUrl: process.env.PPAY_API_URL || 'https://api.ppay.io',
-    apiKey: process.env.PPAY_API_KEY || '',
-    merchantId: process.env.PPAY_MERCHANT_ID || '',
+    baseUrl: process.env.P_PAY_BASEURL || 'https://p-pay-api.dev-polygontech.xyz/api',
+    mid: process.env.P_PAY_MERCHANT_MID || '',
+    apiKey: process.env.P_PAY_APIKEY || '',
+    apiSecret: process.env.P_PAY_API_SECRET || '',
+    ipnUrl: process.env.P_PAY_IPN_URL || 'http://localhost:3001/api/v1/payments/ppay/ipn',
+    successUrl: process.env.P_PAY_SUCCESS_URL || 'http://localhost:3000/payments/success',
+    failUrl: process.env.P_PAY_FAIL_URL || 'http://localhost:3000/payments/failed',
+    cancelUrl: process.env.P_PAY_CANCEL_URL || 'http://localhost:3000/payments/cancelled',
+    timeoutMs: parseInt(process.env.P_PAY_TIMEOUT_MS, 10) || 30000,
   },
 
   payment: {
