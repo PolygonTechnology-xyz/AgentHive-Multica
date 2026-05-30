@@ -58,8 +58,7 @@ describe("useFetch", () => {
       statusText: "OK",
       json: async () => ({ called: true }),
     });
-    // @ts-expect-error override
-    global.fetch = fetchSpy;
+    vi.stubGlobal("fetch", fetchSpy);
 
     renderHook(() => useFetch("/u"));
     const fetcher = swrMock.mock.calls[swrMock.mock.calls.length - 1][1] as (u: string) => Promise<unknown>;

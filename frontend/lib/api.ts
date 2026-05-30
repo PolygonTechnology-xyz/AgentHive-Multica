@@ -25,7 +25,9 @@ async function parseError(response: Response): Promise<ApiErrorBody> {
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const url = path.startsWith("http") ? path : API_URL + (path.startsWith("/") ? path : "/" + path);
-  const response = await fetch(url, { ...init, credentials: "include", headers: { "Content-Type": "application/json", ...(init.headers ?? {}) } });
+  const isFormData = init.body instanceof FormData;
+  const headers = isFormData ? init.headers : { "Content-Type": "application/json", ...(init.headers ?? {}) };
+  const response = await fetch(url, { ...init, credentials: "include", headers });
   if (!response.ok) throw new ApiError(await parseError(response));
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
