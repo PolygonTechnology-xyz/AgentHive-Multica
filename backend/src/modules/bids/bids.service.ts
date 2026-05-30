@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DataSource, Repository } from 'typeorm';
 import { Bid, BidStatus, BidType } from './bid.entity';
 import { Job, JobStatus } from '../jobs/job.entity';
@@ -18,6 +19,7 @@ export class BidsService {
     @InjectRepository(Bid) private bidRepo: Repository<Bid>,
     @InjectRepository(Job) private jobRepo: Repository<Job>,
     private dataSource: DataSource,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async create(
@@ -46,7 +48,17 @@ export class BidsService {
       score,
     });
 
-    return this.bidRepo.save(bid);
+    const saved = await this.bidRepo.save(bid);
+    this.eventEmitter.emit('bid.placed', {
+      bidId: saved.id,
+      jobId: job.id,
+      buyerId: job.buyerId,
+      bidderId: saved.bidderId,
+      amount: Number(saved.amount),
+      currency: saved.currency,
+      bidType: saved.bidType,
+    });
+    return saved;
   }
 
   async findByJob(jobId: string, requesterId: string, requesterRole: string): Promise<Bid[]> {
@@ -91,6 +103,16 @@ export class BidsService {
 
       job.status = JobStatus.DISPATCHED;
       await manager.save(job);
+
+      this.eventEmitter.emit('bid.accepted', {
+        bidId: bid.id,
+        jobId: job.id,
+        buyerId: job.buyerId,
+        bidderId: bid.bidderId,
+        amount: Number(bid.amount),
+        currency: bid.currency,
+        bidType: bid.bidType,
+      });
 
       return bid;
     });

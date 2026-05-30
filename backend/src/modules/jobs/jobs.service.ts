@@ -8,6 +8,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, Between, FindOptionsWhere } from 'typeorm';
 import { Job, JobStatus } from './job.entity';
+import { Bid, BidStatus } from '../bids/bid.entity';
 import { CreateJobDto } from './dto/create-job.dto';
 import { FilterJobsDto } from './dto/filter-jobs.dto';
 import { paginate, PaginatedResult } from '../../common/dto/pagination.dto';
@@ -78,6 +79,71 @@ export class JobsService {
 
     const [items, total] = await qb.getManyAndCount();
     return paginate(items, total, filter);
+  }
+
+
+  async findForFreelancer(
+    freelancerId: string,
+    status: string | undefined,
+    page = 1,
+    limit = 20,
+  ): Promise<{
+    items: Array<{
+      id: string;
+      title: string;
+      status: JobStatus;
+      amount: number;
+      currency: string;
+      deadline: Date;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const normalizedStatus = status && status !== 'all' ? status : undefined;
+    const qb = this.jobRepo
+      .createQueryBuilder('job')
+      .innerJoin(Bid, 'bid', 'bid.job_id = job.id AND bid.bidder_id = :freelancerId', {
+        freelancerId,
+      })
+      .where('bid.status = :bidStatus', { bidStatus: BidStatus.ACCEPTED });
+
+    if (normalizedStatus) {
+      qb.andWhere('job.status = :status', { status: normalizedStatus });
+    } else {
+      qb.andWhere('job.status IN (:...statuses)', {
+        statuses: [
+          JobStatus.DISPATCHED,
+          JobStatus.IN_PROGRESS,
+          JobStatus.DELIVERED,
+          JobStatus.REVISION,
+          JobStatus.COMPLETED,
+        ],
+      });
+    }
+
+    const total = await qb.getCount();
+    const { entities, raw } = await qb
+      .addSelect('bid.amount', 'bid_amount')
+      .addSelect('bid.currency', 'bid_currency')
+      .orderBy('job.updated_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getRawAndEntities();
+
+    return {
+      items: entities.map((job, index) => ({
+        id: job.id,
+        title: job.title,
+        status: job.status,
+        amount: Number(raw[index]?.bid_amount ?? 0),
+        currency: String(raw[index]?.bid_currency ?? job.currency),
+        deadline: job.deadline,
+      })),
+      total,
+      page,
+      limit,
+    };
   }
 
   async findById(id: string): Promise<Job> {

@@ -8,10 +8,11 @@ import { BidderAgentProcessor } from './bidder-agent.processor';
 import { ScoringService } from './scoring.service';
 import { BidsModule } from '../bids/bids.module';
 import { Job } from '../jobs/job.entity';
+import { Bid } from '../bids/bid.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([BidderAgent, Job]),
+    TypeOrmModule.forFeature([BidderAgent, Job, Bid]),
     BullModule.registerQueue({ name: BIDDER_QUEUE }),
     BidsModule,
   ],

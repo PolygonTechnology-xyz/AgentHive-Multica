@@ -13,6 +13,7 @@ describe('JobsController', () => {
       create: jest.fn().mockResolvedValue({ id: 'j' }),
       findAll: jest.fn().mockResolvedValue({ data: [], meta: {} }),
       findByBuyer: jest.fn().mockResolvedValue([]),
+      findForFreelancer: jest.fn().mockResolvedValue({ items: [], total: 0 }),
       findById: jest.fn().mockResolvedValue({ id: 'j' }),
       update: jest.fn().mockResolvedValue({ id: 'j' }),
       cancel: jest.fn().mockResolvedValue({ id: 'j' }),
@@ -46,6 +47,12 @@ describe('JobsController', () => {
   it('delegates findMine', async () => {
     await controller.findMine({ id: 'u' } as any);
     expect(jobsSvc.findByBuyer).toHaveBeenCalledWith('u');
+  });
+
+
+  it('delegates findFreelancerJobs', async () => {
+    await controller.findFreelancerJobs({ id: 'u' } as any, 'in_progress', 2, 10);
+    expect(jobsSvc.findForFreelancer).toHaveBeenCalledWith('u', 'in_progress', 2, 10);
   });
 
   it('delegates findOne', async () => {

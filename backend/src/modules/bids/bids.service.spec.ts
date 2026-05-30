@@ -7,6 +7,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BidsService } from './bids.service';
 import { Bid, BidStatus, BidType } from './bid.entity';
 import { Job, JobStatus } from '../jobs/job.entity';
@@ -17,6 +18,7 @@ describe('BidsService', () => {
   let jobRepo: any;
   let dataSource: any;
   let txManager: any;
+  let emitter: any;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -37,12 +39,14 @@ describe('BidsService', () => {
     dataSource = {
       transaction: jest.fn((cb: any) => cb(txManager)),
     };
+    emitter = { emit: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BidsService,
         { provide: getRepositoryToken(Bid), useValue: bidRepo },
         { provide: getRepositoryToken(Job), useValue: jobRepo },
         { provide: DataSource, useValue: dataSource },
+        { provide: EventEmitter2, useValue: emitter },
       ],
     }).compile();
     service = module.get<BidsService>(BidsService);
@@ -85,6 +89,10 @@ describe('BidsService', () => {
       expect(result.amount).toBe(200);
       expect(result.bidType).toBe(BidType.AUTO);
       expect(result.score).toBe(88);
+      expect(emitter.emit).toHaveBeenCalledWith('bid.placed', expect.objectContaining({
+        jobId: 'j1',
+        bidderId: 'b1',
+      }));
     });
   });
 
@@ -166,6 +174,10 @@ describe('BidsService', () => {
       expect(result.status).toBe(BidStatus.ACCEPTED);
       expect(job.status).toBe(JobStatus.DISPATCHED);
       expect(txManager.update).toHaveBeenCalled();
+      expect(emitter.emit).toHaveBeenCalledWith('bid.accepted', expect.objectContaining({
+        jobId: 'j1',
+        bidId: 'bid1',
+      }));
     });
   });
 

@@ -157,10 +157,12 @@ export class PaymentsService {
           payment.ppayTransactionId = payload.transactionId ?? null;
           await manager.save(payment);
           await manager.update(Job, payment.jobId, { status: JobStatus.IN_PROGRESS });
-          this.eventEmitter.emit('payment.held', {
+          const paymentConfirmedEvent = {
             paymentId: payment.id,
             jobId: payment.jobId,
-          });
+          };
+          this.eventEmitter.emit('payment.held', paymentConfirmedEvent);
+          this.eventEmitter.emit('payment.confirmed', paymentConfirmedEvent);
           return { ok: true as const, processed: true };
 
         case 'FAILED':
@@ -213,10 +215,12 @@ export class PaymentsService {
       await manager.save(payment);
 
       await manager.update(Job, payment.jobId, { status: JobStatus.COMPLETED });
-      this.eventEmitter.emit('payment.released', {
+      const payoutConfirmedEvent = {
         paymentId: payment.id,
         jobId: payment.jobId,
-      });
+      };
+      this.eventEmitter.emit('payment.released', payoutConfirmedEvent);
+      this.eventEmitter.emit('payout.confirmed', payoutConfirmedEvent);
 
       return payment;
     });
@@ -255,6 +259,64 @@ export class PaymentsService {
       this.assertTransition(payment.status, PaymentStatus.DISPUTED);
       await manager.update(Payment, paymentId, { status: PaymentStatus.DISPUTED });
     });
+  }
+
+
+  async findFreelancerPayouts(
+    freelancerId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{
+    items: Array<{
+      id: string;
+      jobId: string;
+      jobTitle: string;
+      grossAmount: number;
+      platformFee: number;
+      netAmount: number;
+      status: PaymentStatus;
+      createdAt: Date;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+    totalEarned: number;
+    totalPending: number;
+  }> {
+    const [payments, total] = await this.paymentRepo.findAndCount({
+      where: { freelancerId },
+      relations: { job: true },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    const allPayments = await this.paymentRepo.find({ where: { freelancerId } });
+    const netAmount = (payment: Payment) => Number(payment.amount) - Number(payment.platformFee);
+    const totalEarned = allPayments
+      .filter((payment) => payment.status === PaymentStatus.RELEASED)
+      .reduce((sum, payment) => sum + netAmount(payment), 0);
+    const totalPending = allPayments
+      .filter((payment) => [PaymentStatus.PENDING, PaymentStatus.HELD, PaymentStatus.DISPUTED].includes(payment.status))
+      .reduce((sum, payment) => sum + netAmount(payment), 0);
+
+    return {
+      items: payments.map((payment) => ({
+        id: payment.id,
+        jobId: payment.jobId,
+        jobTitle: payment.job?.title ?? '',
+        grossAmount: Number(payment.amount),
+        platformFee: Number(payment.platformFee),
+        netAmount: netAmount(payment),
+        status: payment.status,
+        createdAt: payment.createdAt,
+      })),
+      total,
+      page,
+      limit,
+      totalEarned,
+      totalPending,
+    };
   }
 
   async findByUser(userId: string): Promise<Payment[]> {

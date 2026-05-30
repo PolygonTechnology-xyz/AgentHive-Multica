@@ -6,7 +6,7 @@ import { BidderAgentService, BIDDER_QUEUE } from './bidder-agent.service';
 import { BidderAgent, BidderAgentStatus } from './bidder-agent.entity';
 import { ScoringService } from './scoring.service';
 import { BidsService } from '../bids/bids.service';
-import { BidType } from '../bids/bid.entity';
+import { Bid, BidType } from '../bids/bid.entity';
 
 describe('BidderAgentService', () => {
   let service: BidderAgentService;
@@ -14,6 +14,7 @@ describe('BidderAgentService', () => {
   let queue: any;
   let scoring: any;
   let bids: any;
+  let bidRepo: any;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -29,11 +30,13 @@ describe('BidderAgentService', () => {
       parseNlConfig: jest.fn().mockReturnValue({ preferredCategories: ['web'] }),
     };
     bids = { create: jest.fn(), findByBidder: jest.fn() };
+    bidRepo = { count: jest.fn().mockResolvedValue(0) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BidderAgentService,
         { provide: getRepositoryToken(BidderAgent), useValue: agentRepo },
+        { provide: getRepositoryToken(Bid), useValue: bidRepo },
         { provide: getQueueToken(BIDDER_QUEUE), useValue: queue },
         { provide: ScoringService, useValue: scoring },
         { provide: BidsService, useValue: bids },
@@ -44,7 +47,7 @@ describe('BidderAgentService', () => {
 
   describe('provision', () => {
     it('returns existing agent (idempotent)', async () => {
-      agentRepo.findOne.mockResolvedValue({ id: 'a1' });
+      agentRepo.findOne.mockResolvedValue({ id: 'a1', bidThreshold: 70 });
       const result = await service.provision('u1');
       expect(result.id).toBe('a1');
       expect(agentRepo.save).not.toHaveBeenCalled();
@@ -60,9 +63,10 @@ describe('BidderAgentService', () => {
 
   describe('findByUser', () => {
     it('returns agent', async () => {
-      agentRepo.findOne.mockResolvedValue({ id: 'a1' });
+      agentRepo.findOne.mockResolvedValue({ id: 'a1', bidThreshold: 70 });
       const result = await service.findByUser('u');
       expect(result.id).toBe('a1');
+      expect(result.scoreThreshold).toBe(70);
     });
     it('throws NotFoundException when missing', async () => {
       agentRepo.findOne.mockResolvedValue(null);
@@ -72,7 +76,7 @@ describe('BidderAgentService', () => {
 
   describe('update', () => {
     it('applies nlConfig + parses scoringRules', async () => {
-      const agent: any = { id: 'a', userId: 'u' };
+      const agent: any = { id: 'a', userId: 'u', bidThreshold: 70 };
       agentRepo.findOne.mockResolvedValue(agent);
       const result: any = await service.update('u', { nlConfig: 'web work', bidThreshold: 80, maxBidAmount: 500, autoBidEnabled: false, status: BidderAgentStatus.PAUSED });
       expect(scoring.parseNlConfig).toHaveBeenCalledWith('web work');
@@ -82,12 +86,58 @@ describe('BidderAgentService', () => {
       expect(result.status).toBe(BidderAgentStatus.PAUSED);
     });
 
+
+    it('accepts scoreThreshold alias from the dashboard config form', async () => {
+      const agent: any = { id: 'a', userId: 'u', bidThreshold: 70 };
+      agentRepo.findOne.mockResolvedValue(agent);
+      const result: any = await service.update('u', { scoreThreshold: 85 });
+      expect(result.bidThreshold).toBe(85);
+      expect(result.scoreThreshold).toBe(85);
+    });
+
     it('updates only provided fields', async () => {
       const agent: any = { id: 'a', userId: 'u', bidThreshold: 70 };
       agentRepo.findOne.mockResolvedValue(agent);
       const result: any = await service.update('u', { bidThreshold: 90 });
       expect(result.bidThreshold).toBe(90);
       expect(scoring.parseNlConfig).not.toHaveBeenCalled();
+    });
+  });
+
+
+  describe('findList / pause / resume', () => {
+    it('returns dashboard list item with bid counts', async () => {
+      agentRepo.findOne.mockResolvedValue({
+        id: 'a',
+        status: BidderAgentStatus.ACTIVE,
+        autoBidEnabled: true,
+        bidThreshold: 75,
+        provisionedAt: new Date('2026-01-01T00:00:00Z'),
+      });
+      bidRepo.count.mockResolvedValueOnce(4).mockResolvedValueOnce(2);
+      const result = await service.findList('u');
+      expect(result[0]).toEqual(expect.objectContaining({
+        id: 'a',
+        status: 'active',
+        autoBid: true,
+        scoreThreshold: 75,
+        bidsPlaced: 4,
+        bidsWon: 2,
+      }));
+    });
+
+    it('pauses and resumes by id', async () => {
+      agentRepo.findOne.mockResolvedValue({ id: 'a', userId: 'u', bidThreshold: 70 });
+      await service.pause('u', 'a');
+      expect(agentRepo.save).toHaveBeenLastCalledWith(expect.objectContaining({
+        status: BidderAgentStatus.PAUSED,
+        autoBidEnabled: false,
+      }));
+      await service.resume('u', 'a');
+      expect(agentRepo.save).toHaveBeenLastCalledWith(expect.objectContaining({
+        status: BidderAgentStatus.ACTIVE,
+        autoBidEnabled: true,
+      }));
     });
   });
 

@@ -21,6 +21,13 @@ describe('JobsService', () => {
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn().mockResolvedValue([[{ id: 'j1' }], 1]),
+      getCount: jest.fn().mockResolvedValue(1),
+      addSelect: jest.fn().mockReturnThis(),
+      innerJoin: jest.fn().mockReturnThis(),
+      getRawAndEntities: jest.fn().mockResolvedValue({
+        entities: [{ id: 'j1', title: 'Job', status: JobStatus.IN_PROGRESS, currency: 'BDT', deadline: new Date('2026-06-01T00:00:00Z') }],
+        raw: [{ bid_amount: '500', bid_currency: 'BDT' }],
+      }),
     };
     jobRepo = {
       create: jest.fn((d) => d),
@@ -90,6 +97,20 @@ describe('JobsService', () => {
       (f as any).skills = 'react,typescript';
       await service.findAll(f);
       expect(qb.andWhere).toHaveBeenCalledTimes(4);
+    });
+  });
+
+
+  describe('findForFreelancer', () => {
+    it('returns accepted freelancer jobs with bid amount', async () => {
+      const result = await service.findForFreelancer('f', 'in_progress', 1, 20);
+      expect(qb.innerJoin).toHaveBeenCalled();
+      expect(qb.andWhere).toHaveBeenCalledWith('job.status = :status', { status: 'in_progress' });
+      expect(result.items[0]).toEqual(expect.objectContaining({
+        id: 'j1',
+        amount: 500,
+        currency: 'BDT',
+      }));
     });
   });
 

@@ -80,7 +80,11 @@ export class DeliveryService {
     await this.dispatchRepo.save(dispatch);
     await this.jobRepo.update(dispatch.jobId, { status: JobStatus.REVISION });
 
-    this.eventEmitter.emit('delivery.revision-requested', { dispatchId: dispatch.id, reason });
+    this.eventEmitter.emit('delivery.revision-requested', {
+      dispatchId: dispatch.id,
+      jobId: dispatch.jobId,
+      reason,
+    });
   }
 
   async approve(deliveryId: string, buyerId: string): Promise<void> {

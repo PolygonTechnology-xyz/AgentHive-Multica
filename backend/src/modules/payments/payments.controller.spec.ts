@@ -9,6 +9,7 @@ describe('PaymentsController', () => {
   beforeEach(async () => {
     svc = {
       findByUser: jest.fn().mockResolvedValue([]),
+      findFreelancerPayouts: jest.fn().mockResolvedValue({ items: [], total: 0 }),
       fundEscrow: jest.fn().mockResolvedValue({
         payment: { id: 'p', ppayReference: 'PID' },
         redirectUrl: 'http://gateway/page',
@@ -22,6 +23,12 @@ describe('PaymentsController', () => {
       providers: [{ provide: PaymentsService, useValue: svc }],
     }).compile();
     controller = module.get<PaymentsController>(PaymentsController);
+  });
+
+
+  it('delegates freelancerPayouts', async () => {
+    await controller.freelancerPayouts({ id: 'u' } as any, 2, 10);
+    expect(svc.findFreelancerPayouts).toHaveBeenCalledWith('u', 2, 10);
   });
 
   it('delegates history', async () => {

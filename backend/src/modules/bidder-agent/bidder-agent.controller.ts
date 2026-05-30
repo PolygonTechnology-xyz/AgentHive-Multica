@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCookieAuth,
@@ -32,6 +32,14 @@ class UpdateBidderAgentDto {
   @Max(100)
   @Type(() => Number)
   bidThreshold?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 100, example: 70 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  @Type(() => Number)
+  scoreThreshold?: number;
 
   @ApiPropertyOptional({ minimum: 0, example: 20000 })
   @IsOptional()
@@ -86,6 +94,13 @@ class TestScoreDto {
 export class BidderAgentController {
   constructor(private bidderAgentService: BidderAgentService) {}
 
+
+  @ApiOperation({ summary: 'List bidder agents for dashboard compatibility' })
+  @Get('list')
+  listAgents(@CurrentUser() user: User) {
+    return this.bidderAgentService.findList(user.id);
+  }
+
   @ApiOperation({ summary: 'Get my bidder agent (config + status)' })
   @Get('me')
   getMyAgent(@CurrentUser() user: User) {
@@ -96,6 +111,29 @@ export class BidderAgentController {
   @Patch('me')
   updateMyAgent(@CurrentUser() user: User, @Body() dto: UpdateBidderAgentDto) {
     return this.bidderAgentService.update(user.id, dto);
+  }
+
+
+  @ApiOperation({ summary: 'Update bidder agent config by id' })
+  @Patch(':id/config')
+  updateAgentById(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+    @Body() dto: UpdateBidderAgentDto,
+  ) {
+    return this.bidderAgentService.updateById(user.id, id, dto);
+  }
+
+  @ApiOperation({ summary: 'Pause bidder agent by id' })
+  @Patch(':id/pause')
+  pauseAgent(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.bidderAgentService.pause(user.id, id);
+  }
+
+  @ApiOperation({ summary: 'Resume bidder agent by id' })
+  @Patch(':id/resume')
+  resumeAgent(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.bidderAgentService.resume(user.id, id);
   }
 
   @ApiOperation({ summary: 'Bid history (auto and manual)' })

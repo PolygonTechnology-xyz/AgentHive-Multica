@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Query, Sse, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCookieAuth,
@@ -9,7 +9,8 @@ import {
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/user.entity';
-import { NotificationsService } from './notifications.service';
+import { NotificationsService, NotificationMessage } from './notifications.service';
+import { Observable } from 'rxjs';
 
 @ApiTags('Notifications')
 @ApiBearerAuth('JWT')
@@ -18,6 +19,13 @@ import { NotificationsService } from './notifications.service';
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
   constructor(private notificationsService: NotificationsService) {}
+
+
+  @ApiOperation({ summary: 'Stream my notifications via server-sent events' })
+  @Sse('stream')
+  stream(@CurrentUser() user: User): Observable<NotificationMessage> {
+    return this.notificationsService.streamForUser(user.id);
+  }
 
   @ApiOperation({ summary: 'List my notifications (paginated)' })
   @ApiQuery({ name: 'page', required: false, type: Number })

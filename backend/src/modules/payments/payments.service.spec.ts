@@ -23,7 +23,7 @@ describe('PaymentsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    paymentRepo = { findOne: jest.fn(), find: jest.fn() };
+    paymentRepo = { findOne: jest.fn(), find: jest.fn(), findAndCount: jest.fn() };
     jobRepo = {};
     bidRepo = {};
     gateway = {
@@ -145,6 +145,7 @@ describe('PaymentsService', () => {
       expect(payment.ppayTransactionId).toBe('TXN1');
       expect(txManager.update).toHaveBeenCalledWith(Job, 'j', { status: JobStatus.IN_PROGRESS });
       expect(emitter.emit).toHaveBeenCalledWith('payment.held', expect.any(Object));
+      expect(emitter.emit).toHaveBeenCalledWith('payment.confirmed', expect.any(Object));
     });
 
     it('duplicate SUCCESSFUL is idempotent', async () => {
@@ -259,6 +260,7 @@ describe('PaymentsService', () => {
       expect(payment.status).toBe(PaymentStatus.RELEASED);
       expect(payment.releasedAt).toBeInstanceOf(Date);
       expect(emitter.emit).toHaveBeenCalledWith('payment.released', expect.any(Object));
+      expect(emitter.emit).toHaveBeenCalledWith('payout.confirmed', expect.any(Object));
     });
   });
 
@@ -320,6 +322,38 @@ describe('PaymentsService', () => {
   });
 
   describe('findByUser / findById', () => {
+
+    it('returns freelancer payouts with earned and pending totals', async () => {
+      const released = {
+        id: 'p1',
+        jobId: 'j1',
+        job: { title: 'Done job' },
+        amount: 100,
+        platformFee: 10,
+        status: PaymentStatus.RELEASED,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      };
+      const held = {
+        id: 'p2',
+        jobId: 'j2',
+        job: { title: 'Active job' },
+        amount: 200,
+        platformFee: 20,
+        status: PaymentStatus.HELD,
+        createdAt: new Date('2026-01-02T00:00:00Z'),
+      };
+      paymentRepo.findAndCount.mockResolvedValue([[released, held], 2]);
+      paymentRepo.find.mockResolvedValue([released, held]);
+      const result = await service.findFreelancerPayouts('f', 1, 20);
+      expect(result.items[0]).toEqual(expect.objectContaining({
+        id: 'p1',
+        jobTitle: 'Done job',
+        netAmount: 90,
+      }));
+      expect(result.totalEarned).toBe(90);
+      expect(result.totalPending).toBe(180);
+    });
+
     it('returns payments for buyer or freelancer', async () => {
       paymentRepo.find.mockResolvedValue([{ id: 'p1' }]);
       const result = await service.findByUser('u');

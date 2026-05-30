@@ -61,6 +61,22 @@ export class JobsController {
     return this.jobsService.findByBuyer(user.id);
   }
 
+
+  @ApiOperation({ summary: 'List jobs awarded to the current freelancer' })
+  @ApiBearerAuth('JWT')
+  @ApiCookieAuth('access_token')
+  @Get('freelancer')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('freelancer')
+  findFreelancerJobs(
+    @CurrentUser() user: User,
+    @Query('status') status?: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    return this.jobsService.findForFreelancer(user.id, status, Number(page), Number(limit));
+  }
+
   @ApiOperation({ summary: 'Get job detail' })
   @ApiParam({ name: 'id', format: 'uuid' })
   @Get(':id')
