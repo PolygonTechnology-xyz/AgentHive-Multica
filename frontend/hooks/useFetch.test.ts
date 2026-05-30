@@ -58,7 +58,6 @@ describe("useFetch", () => {
       statusText: "OK",
       json: async () => ({ called: true }),
     });
-    // @ts-expect-error override
     global.fetch = fetchSpy;
 
     renderHook(() => useFetch("/u"));

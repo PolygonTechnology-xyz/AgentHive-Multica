@@ -26,3 +26,7 @@
 .fieldLabel { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; }
 .textarea { background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 10px 14px; color: var(--text); font-size: 14px; resize: vertical; width: 100%; line-height: 1.6; font-family: inherit; }
 .textarea:focus { outline: none; border-color: var(--violet); }
+
+.deliveryAttachments { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.deliveryAttachment { width: fit-content; max-width: 100%; color: var(--cyan); font-size: 13px; overflow-wrap: anywhere; }
+.deliveryAttachment:hover { text-decoration: underline; }

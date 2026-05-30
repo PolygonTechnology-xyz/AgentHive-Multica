@@ -10,12 +10,13 @@ import { Spinner } from "@/components/ui/Spinner/Spinner";
 import styles from "./job-detail.module.css";
 
 type Job = { id: string; title: string; description: string; status: string; budgetMin: number; budgetMax: number; currency: string; deadline: string };
-type Delivery = { id: string; note: string; status: string; revisionRound: number; createdAt: string };
+type Attachment = { fileId: string; name: string; sizeBytes: number; contentType: string; downloadUrl: string; expiresAt: string };
+type Delivery = { id: string; message: string | null; attachments: Attachment[]; status: "submitted" | "approved" | "revision_requested"; revisionRound: number; createdAt: string };
 
 export default function FreelancerJobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: jobData, isLoading } = useFetch<{ data: Job }>(`/jobs/${id}`);
-  const { data: deliveryData, mutate } = useFetch<{ data: Delivery[] }>(`/deliveries?jobId=${id}`);
+  const { data: deliveryData, mutate } = useFetch<{ data: Delivery[] }>(`/jobs/${id}/deliveries`);
 
   const [note, setNote] = useState("");
   const [attachments, setAttachments] = useState("");
@@ -23,7 +24,10 @@ export default function FreelancerJobDetailPage() {
   const [error, setError] = useState("");
 
   const job = jobData?.data;
-  const deliveries = deliveryData?.data ?? [];
+  const deliveries = [...(deliveryData?.data ?? [])].sort((a, b) => {
+    if (b.revisionRound !== a.revisionRound) return b.revisionRound - a.revisionRound;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 
   async function submitDelivery(e: FormEvent) {
     e.preventDefault();
@@ -70,11 +74,20 @@ export default function FreelancerJobDetailPage() {
           {deliveries.map((d) => (
             <Card key={d.id} className={styles.deliveryCard}>
               <div className={styles.deliveryMeta}>
-                <span className={styles.round}>Round {d.revisionRound + 1}</span>
-                <span className={styles.badge} data-status={d.status}>{d.status}</span>
+                <span className={styles.round}>Round {d.revisionRound}</span>
+                <span className={styles.badge} data-status={d.status}>{d.status.replace("_", " ")}</span>
                 <span className={styles.dim}>{new Date(d.createdAt).toLocaleDateString()}</span>
               </div>
-              <p className={styles.deliveryNote}>{d.note}</p>
+              {d.message && <p className={styles.deliveryNote}>{d.message}</p>}
+              {d.attachments.length > 0 && (
+                <div className={styles.deliveryAttachments}>
+                  {d.attachments.map((att) => (
+                    <a key={att.fileId} href={att.downloadUrl} target="_blank" rel="noreferrer" className={styles.deliveryAttachment}>
+                      {att.name}
+                    </a>
+                  ))}
+                </div>
+              )}
             </Card>
           ))}
         </div>

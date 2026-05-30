@@ -6,43 +6,74 @@ import { useFetch } from "@/hooks/useFetch";
 import { apiFetch, ApiError } from "@/lib/api";
 import { Card } from "@/components/ui/Card/Card";
 import { Button } from "@/components/ui/Button/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Spinner } from "@/components/ui/Spinner/Spinner";
 import styles from "./delivery.module.css";
 
-type Delivery = { id: string; jobId: string; note: string; attachmentUrls: string[]; revisionRound: number; status: string; createdAt: string };
+type Attachment = { fileId: string; name: string; sizeBytes: number; contentType: string; downloadUrl: string; expiresAt: string };
+type Delivery = {
+  id: string;
+  jobId: string;
+  dispatchId: string;
+  revisionRound: number;
+  status: "submitted" | "approved" | "revision_requested";
+  message: string | null;
+  attachments: Attachment[];
+  submittedBy: string;
+  createdAt: string;
+};
+
+function sortDeliveries(deliveries: Delivery[]) {
+  return [...deliveries].sort((a, b) => {
+    if (b.revisionRound !== a.revisionRound) return b.revisionRound - a.revisionRound;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}
+
+function formatBytes(sizeBytes: number) {
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) return "";
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} KB`;
+  return `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`;
+}
 
 export default function DeliveryPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { data, isLoading } = useFetch<{ data: Delivery[] }>(`/deliveries?jobId=${id}`);
+  const { data, isLoading } = useFetch<{ data: Delivery[] }>(`/jobs/${id}/deliveries`);
   const [revisionNote, setRevisionNote] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const deliveries = data?.data ?? [];
+  const deliveries = sortDeliveries(data?.data ?? []);
   const latest = deliveries[0];
 
   async function approve(deliveryId: string) {
     setLoading("approve");
     setError("");
     try {
-      await apiFetch(`/deliveries/${deliveryId}/approve`, { method: "PATCH" });
+      await apiFetch(`/deliveries/${deliveryId}/approve`, { method: "POST" });
       router.push(`/jobs/${id}/complete`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to approve");
     } finally {
       setLoading(null);
+      setConfirmOpen(false);
     }
   }
 
   async function requestRevision(deliveryId: string) {
-    if (!revisionNote.trim()) { setError("Please enter revision notes"); return; }
+    if (revisionNote.trim().length < 10) {
+      setError("Revision notes must be at least 10 characters.");
+      return;
+    }
     setLoading("revision");
     setError("");
     try {
-      await apiFetch(`/deliveries/${deliveryId}/revision`, {
-        method: "PATCH",
-        body: JSON.stringify({ revisionNote }),
+      await apiFetch(`/deliveries/${deliveryId}/request-revision`, {
+        method: "POST",
+        body: JSON.stringify({ reason: revisionNote }),
       });
       router.push(`/jobs/${id}/progress`);
     } catch (err) {
@@ -66,17 +97,19 @@ export default function DeliveryPage() {
       ) : (
         <Card className={styles.card}>
           <div className={styles.deliveryMeta}>
-            <span className={styles.round}>Round {latest.revisionRound + 1}</span>
+            <span className={styles.round}>Round {latest.revisionRound}</span>
+            <span className={styles.status}>{latest.status.replace("_", " ")}</span>
             <span className={styles.dim}>{new Date(latest.createdAt).toLocaleDateString()}</span>
           </div>
-          <p className={styles.note}>{latest.note}</p>
-          {latest.attachmentUrls?.length > 0 && (
+          {latest.message && <p className={styles.note}>{latest.message}</p>}
+          {latest.attachments?.length > 0 && (
             <div className={styles.attachments}>
               <div className={styles.attachLabel}>Attachments</div>
-              {latest.attachmentUrls.map((url, i) => (
-                <a key={i} href={url} target="_blank" rel="noreferrer" className={styles.attachment}>
+              {latest.attachments.map((att) => (
+                <a key={att.fileId} href={att.downloadUrl} target="_blank" rel="noreferrer" className={styles.attachment}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                  {url.split("/").pop()}
+                  <span>{att.name}</span>
+                  <span className={styles.attachmentMeta}>{formatBytes(att.sizeBytes)}</span>
                 </a>
               ))}
             </div>
@@ -84,8 +117,8 @@ export default function DeliveryPage() {
           {latest.status === "submitted" && (
             <>
               <div className={styles.actions}>
-                <Button onClick={() => approve(latest.id)} disabled={!!loading}>
-                  {loading === "approve" ? "Approving…" : "✓ Approve & release payment"}
+                <Button onClick={() => setConfirmOpen(true)} disabled={!!loading}>
+                  Approve & release payment
                 </Button>
               </div>
               <div className={styles.revisionSection}>
@@ -98,13 +131,49 @@ export default function DeliveryPage() {
                   placeholder="Describe what needs to be changed…"
                 />
                 <Button variant="ghost" onClick={() => requestRevision(latest.id)} disabled={!!loading}>
-                  {loading === "revision" ? "Requesting…" : "Request revision"}
+                  {loading === "revision" ? "Requesting..." : "Request revision"}
                 </Button>
               </div>
             </>
           )}
         </Card>
       )}
+
+      {deliveries.length > 1 && (
+        <section className={styles.history} aria-label="Delivery history">
+          <h2 className={styles.historyTitle}>Delivery history</h2>
+          {deliveries.slice(1).map((delivery) => (
+            <Card key={delivery.id} className={styles.historyCard}>
+              <div className={styles.deliveryMeta}>
+                <span className={styles.round}>Round {delivery.revisionRound}</span>
+                <span className={styles.status}>{delivery.status.replace("_", " ")}</span>
+                <span className={styles.dim}>{new Date(delivery.createdAt).toLocaleDateString()}</span>
+              </div>
+              {delivery.message && <p className={styles.note}>{delivery.message}</p>}
+              {delivery.attachments.length > 0 && (
+                <div className={styles.historyAttachments}>
+                  {delivery.attachments.map((att) => (
+                    <a key={att.fileId} href={att.downloadUrl} target="_blank" rel="noreferrer" className={styles.attachment}>
+                      {att.name}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </Card>
+          ))}
+        </section>
+      )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Approve and release payment?"
+        description="This will release the escrowed payment to the freelancer and mark the job complete. This cannot be undone."
+        confirmLabel="Confirm"
+        cancelLabel="Cancel"
+        isLoading={loading === "approve"}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => latest && approve(latest.id)}
+      />
     </div>
   );
 }

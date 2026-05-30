@@ -2,27 +2,50 @@
 
 import { useState, FormEvent } from "react";
 import { useParams } from "next/navigation";
+import { useFetch } from "@/hooks/useFetch";
 import { apiFetch, ApiError } from "@/lib/api";
 import { Card } from "@/components/ui/Card/Card";
 import { Button } from "@/components/ui/Button/Button";
+import { Spinner } from "@/components/ui/Spinner/Spinner";
 import styles from "./complete.module.css";
+
+type Delivery = {
+  id: string;
+  revisionRound: number;
+  submittedBy: string;
+  createdAt: string;
+};
+
+function latestDelivery(deliveries: Delivery[]) {
+  return [...deliveries].sort((a, b) => {
+    if (b.revisionRound !== a.revisionRound) return b.revisionRound - a.revisionRound;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  })[0];
+}
 
 export default function CompletePage() {
   const { id } = useParams<{ id: string }>();
+  const { data, isLoading } = useFetch<{ data: Delivery[] }>(`/jobs/${id}/deliveries`);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const latest = latestDelivery(data?.data ?? []);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+    if (!latest?.submittedBy) {
+      setError("Unable to identify the freelancer for this review.");
+      return;
+    }
     setLoading(true);
     try {
-      await apiFetch("/reviews", {
+      await apiFetch(`/jobs/${id}/reviews`, {
         method: "POST",
-        body: JSON.stringify({ jobId: id, rating, comment }),
+        body: JSON.stringify({ revieweeId: latest.submittedBy, rating, comment }),
       });
       setSubmitted(true);
     } catch (err) {
@@ -32,13 +55,15 @@ export default function CompletePage() {
     }
   }
 
+  if (isLoading) return <div className={styles.loading}><Spinner /></div>;
+
   if (submitted) {
     return (
       <div className={styles.page}>
         <div className={styles.success}>
           <div className={styles.successIcon}>✓</div>
           <h1>Review submitted!</h1>
-          <p>Payment has been released and the job is complete.</p>
+          <p>Thanks — your review is live.</p>
           <Button href="/jobs">Back to my jobs</Button>
         </div>
       </div>
@@ -70,7 +95,7 @@ export default function CompletePage() {
           </label>
           <div className={styles.actions}>
             <Button variant="ghost" href="/jobs">Skip</Button>
-            <Button type="submit" disabled={loading}>{loading ? "Submitting…" : "Submit review"}</Button>
+            <Button type="submit" disabled={loading || !latest}>{loading ? "Submitting..." : "Submit review"}</Button>
           </div>
         </form>
       </Card>
