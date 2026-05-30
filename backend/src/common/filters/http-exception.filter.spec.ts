@@ -1,5 +1,6 @@
-import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus } from '@nestjs/common';
 import { AllExceptionsFilter } from './http-exception.filter';
+import { AuthErrorCode, authErrorResponse } from '../../modules/auth/auth-error-code';
 
 const makeHost = (url = '/api/v1/foo') => {
   const json = jest.fn();
@@ -37,6 +38,19 @@ describe('AllExceptionsFilter', () => {
     const exc = new HttpException({ message: ['e1', 'e2'] }, 400);
     filter.catch(exc, ctx.host);
     expect(ctx.json).toHaveBeenCalledWith(expect.objectContaining({ detail: 'e1; e2' }));
+  });
+
+  it('preserves structured exception codes', () => {
+    const ctx = makeHost();
+    filter.catch(
+      new ConflictException(
+        authErrorResponse(AuthErrorCode.EMAIL_ALREADY_EXISTS, 'Email already registered'),
+      ),
+      ctx.host,
+    );
+    expect(ctx.json).toHaveBeenCalledWith(
+      expect.objectContaining({ code: AuthErrorCode.EMAIL_ALREADY_EXISTS }),
+    );
   });
 
   it('handles non-HttpException as 500', () => {

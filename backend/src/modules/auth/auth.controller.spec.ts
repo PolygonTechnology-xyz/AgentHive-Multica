@@ -1,6 +1,8 @@
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AuthErrorCode, authErrorResponse } from './auth-error-code';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -15,6 +17,7 @@ describe('AuthController', () => {
       refresh: jest.fn().mockResolvedValue(undefined),
       logout: jest.fn().mockResolvedValue(undefined),
       sanitize: jest.fn((u) => u),
+      verifyOAuthState: jest.fn(() => 'buyer'),
     };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -39,12 +42,11 @@ describe('AuthController', () => {
     expect(svc.login).toHaveBeenCalledWith('a@b.com', 'p', res);
   });
 
-  it('refresh returns short circuit when cookies missing', async () => {
+  it('refresh throws 401 when cookies are missing', async () => {
     const req: any = { cookies: {} };
     const res: any = {};
-    const result = await controller.refresh(req, res);
+    await expect(controller.refresh(req, res)).rejects.toThrow(UnauthorizedException);
     expect(svc.refresh).not.toHaveBeenCalled();
-    expect((result as any).message).toBe('No refresh token');
   });
 
   it('refresh delegates when cookies present', async () => {
@@ -66,11 +68,33 @@ describe('AuthController', () => {
   });
 
   it('googleCallback redirects after OAuth', async () => {
-    const req: any = { user: { oauthId: 'g', email: 'a@b.com', provider: 'google', displayName: 'A' } };
+    const req: any = {
+      user: { oauthId: 'g', email: 'a@b.com', provider: 'google', displayName: 'A' },
+      query: { state: 'signed-state' },
+    };
     const res: any = { redirect: jest.fn() };
     await controller.googleCallback(req, res);
-    expect(svc.loginOAuth).toHaveBeenCalled();
+    expect(svc.verifyOAuthState).toHaveBeenCalledWith('signed-state');
+    expect(svc.loginOAuth).toHaveBeenCalledWith(req.user, 'buyer', res);
     expect(res.redirect).toHaveBeenCalled();
+  });
+
+  it('redirects first-time OAuth users without role state to role picker', async () => {
+    const req: any = {
+      user: { oauthId: 'g', email: 'a@b.com', provider: 'google', displayName: 'A' },
+      query: {},
+    };
+    const res: any = { redirect: jest.fn() };
+    svc.verifyOAuthState.mockReturnValueOnce(undefined);
+    svc.loginOAuth.mockRejectedValueOnce(
+      new BadRequestException(
+        authErrorResponse(AuthErrorCode.OAUTH_ROLE_REQUIRED, 'OAuth registration requires a role'),
+      ),
+    );
+
+    await controller.googleCallback(req, res);
+
+    expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/register?oauthRoleRequired=1');
   });
 
   it('me returns sanitized user', () => {

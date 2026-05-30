@@ -1,0 +1,14 @@
+export enum AuthErrorCode {
+  EMAIL_ALREADY_EXISTS = 'EMAIL_ALREADY_EXISTS',
+  EMAIL_NOT_VERIFIED = 'EMAIL_NOT_VERIFIED',
+  INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
+  INVALID_OAUTH_STATE = 'INVALID_OAUTH_STATE',
+  OAUTH_ROLE_REQUIRED = 'OAUTH_ROLE_REQUIRED',
+  REFRESH_TOKEN_MISSING = 'REFRESH_TOKEN_MISSING',
+}
+
+export const authErrorResponse = (code: AuthErrorCode, message: string) => ({
+  code,
+  error: code,
+  message,
+});

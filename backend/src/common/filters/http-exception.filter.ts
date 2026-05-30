@@ -29,6 +29,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       typeof exceptionResponse === 'object' && exceptionResponse !== null
         ? (exceptionResponse as any).message || (exceptionResponse as any).error
         : exceptionResponse;
+    const code =
+      typeof exceptionResponse === 'object' && exceptionResponse !== null
+        ? (exceptionResponse as any).code || (exceptionResponse as any).error
+        : undefined;
 
     if (status >= 500) {
       this.logger.error(exception instanceof Error ? exception.stack : String(exception));
@@ -39,6 +43,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       title: HttpStatus[status] ?? 'Error',
       status,
       detail: Array.isArray(detail) ? detail.join('; ') : detail ?? 'Unexpected error',
+      ...(code ? { code } : {}),
       instance: request.url,
       timestamp: new Date().toISOString(),
     });

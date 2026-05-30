@@ -42,7 +42,7 @@ export class NotificationsService {
     }
   }
 
-  private async sendEmail(to: string, subject: string, text: string): Promise<void> {
+  async sendEmail(to: string, subject: string, text: string): Promise<void> {
     const apiKey = this.config.get<string>('sendgrid.apiKey');
     const from = this.config.get<string>('sendgrid.fromEmail');
 

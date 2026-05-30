@@ -54,6 +54,7 @@ describe('BidderAgentService', () => {
       agentRepo.findOne.mockResolvedValue(null);
       const result: any = await service.provision('u1');
       expect(result.userId).toBe('u1');
+      expect(agentRepo.create).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u1' }));
       expect(agentRepo.save).toHaveBeenCalled();
     });
   });
@@ -113,6 +114,22 @@ describe('BidderAgentService', () => {
     });
   });
 
+  describe('onWorkforceAgentConnected', () => {
+    it('activates the bidder agent and enables auto-bid', async () => {
+      const agent: any = { id: 'a', userId: 'u', status: BidderAgentStatus.DORMANT, autoBidEnabled: false };
+      agentRepo.findOne.mockResolvedValue(agent);
+      await service.onWorkforceAgentConnected({ userId: 'u' });
+      expect(agentRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: BidderAgentStatus.ACTIVE, autoBidEnabled: true }),
+      );
+    });
+
+    it('ignores malformed connection events', async () => {
+      await service.onWorkforceAgentConnected({});
+      expect(agentRepo.findOne).not.toHaveBeenCalled();
+    });
+  });
+
   describe('onJobPosted', () => {
     it('queues scoring jobs skipping job owner', async () => {
       agentRepo.find.mockResolvedValue([
@@ -149,16 +166,25 @@ describe('BidderAgentService', () => {
   });
 
   describe('processScoreJobWithData', () => {
+    it('skips when agent is not active or auto-bid is disabled', async () => {
+      await service.processScoreJobWithData(
+        { id: 'a', userId: 'u', bidThreshold: 70, maxBidAmount: null, status: BidderAgentStatus.DORMANT, autoBidEnabled: false } as any,
+        { id: 'j', budgetMax: 100 },
+      );
+      expect(scoring.score).not.toHaveBeenCalled();
+      expect(bids.create).not.toHaveBeenCalled();
+    });
+
     it('skips when score below threshold', async () => {
       scoring.score.mockReturnValue({ total: 50 });
-      await service.processScoreJobWithData({ bidThreshold: 70 } as any, { id: 'j' });
+      await service.processScoreJobWithData({ bidThreshold: 70, status: BidderAgentStatus.ACTIVE, autoBidEnabled: true } as any, { id: 'j' });
       expect(bids.create).not.toHaveBeenCalled();
     });
 
     it('places bid with maxBidAmount cap', async () => {
       scoring.score.mockReturnValue({ total: 90 });
       await service.processScoreJobWithData(
-        { id: 'a', userId: 'u', bidThreshold: 70, maxBidAmount: 200 } as any,
+        { id: 'a', userId: 'u', bidThreshold: 70, maxBidAmount: 200, status: BidderAgentStatus.ACTIVE, autoBidEnabled: true } as any,
         { id: 'j', budgetMax: 500 },
       );
       expect(bids.create).toHaveBeenCalledWith(
@@ -172,7 +198,7 @@ describe('BidderAgentService', () => {
     it('uses budgetMax when no maxBidAmount', async () => {
       scoring.score.mockReturnValue({ total: 90 });
       await service.processScoreJobWithData(
-        { id: 'a', userId: 'u', bidThreshold: 70, maxBidAmount: null } as any,
+        { id: 'a', userId: 'u', bidThreshold: 70, maxBidAmount: null, status: BidderAgentStatus.ACTIVE, autoBidEnabled: true } as any,
         { id: 'j', budgetMax: 300 },
       );
       expect(bids.create).toHaveBeenCalledWith(
@@ -186,7 +212,7 @@ describe('BidderAgentService', () => {
     it('falls back to budgetMin when no budgetMax', async () => {
       scoring.score.mockReturnValue({ total: 90 });
       await service.processScoreJobWithData(
-        { id: 'a', userId: 'u', bidThreshold: 70, maxBidAmount: null } as any,
+        { id: 'a', userId: 'u', bidThreshold: 70, maxBidAmount: null, status: BidderAgentStatus.ACTIVE, autoBidEnabled: true } as any,
         { id: 'j', budgetMin: 150 },
       );
       expect(bids.create).toHaveBeenCalledWith(
@@ -200,7 +226,7 @@ describe('BidderAgentService', () => {
     it('falls back to default 100 when no budget data', async () => {
       scoring.score.mockReturnValue({ total: 90 });
       await service.processScoreJobWithData(
-        { id: 'a', userId: 'u', bidThreshold: 70, maxBidAmount: null } as any,
+        { id: 'a', userId: 'u', bidThreshold: 70, maxBidAmount: null, status: BidderAgentStatus.ACTIVE, autoBidEnabled: true } as any,
         { id: 'j' },
       );
       expect(bids.create).toHaveBeenCalledWith(
@@ -216,7 +242,7 @@ describe('BidderAgentService', () => {
       bids.create.mockRejectedValue(new Error('already bid'));
       await expect(
         service.processScoreJobWithData(
-          { id: 'a', userId: 'u', bidThreshold: 70, maxBidAmount: null } as any,
+          { id: 'a', userId: 'u', bidThreshold: 70, maxBidAmount: null, status: BidderAgentStatus.ACTIVE, autoBidEnabled: true } as any,
           { id: 'j', budgetMax: 100 },
         ),
       ).resolves.toBeUndefined();

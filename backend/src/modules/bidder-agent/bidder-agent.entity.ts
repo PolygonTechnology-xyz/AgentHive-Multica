@@ -9,6 +9,7 @@ import {
 import { User } from '../users/user.entity';
 
 export enum BidderAgentStatus {
+  DORMANT = 'dormant',
   ACTIVE = 'active',
   PAUSED = 'paused',
   DISABLED = 'disabled',
@@ -25,7 +26,7 @@ export class BidderAgent {
   @Column({ name: 'user_id', unique: true })
   userId: string;
 
-  @Column({ type: 'enum', enum: BidderAgentStatus, default: BidderAgentStatus.ACTIVE })
+  @Column({ type: 'enum', enum: BidderAgentStatus, default: BidderAgentStatus.DORMANT })
   status: BidderAgentStatus;
 
   @Column({ name: 'nl_config', type: 'text', nullable: true })
@@ -52,7 +53,7 @@ export class BidderAgent {
   @Column({ name: 'max_bid_amount', type: 'decimal', precision: 10, scale: 2, nullable: true })
   maxBidAmount: number;
 
-  @Column({ name: 'auto_bid_enabled', default: true })
+  @Column({ name: 'auto_bid_enabled', default: false })
   autoBidEnabled: boolean;
 
   @CreateDateColumn({ name: 'provisioned_at' })

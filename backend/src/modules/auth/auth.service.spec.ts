@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
@@ -7,6 +7,8 @@ import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserRole, UserStatus } from '../users/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { AuthErrorCode } from './auth-error-code';
 
 const mockUsersService = {
   findByEmail: jest.fn(),
@@ -22,7 +24,10 @@ const mockUsersService = {
   revokeAllRefreshTokens: jest.fn(),
 };
 
-const mockJwtService = { sign: jest.fn(() => 'mock-token') };
+const mockJwtService = {
+  sign: jest.fn(() => 'mock-token'),
+  verify: jest.fn((state: string) => ({ role: state })),
+};
 const mockConfig = {
   get: jest.fn((key: string) => {
     const map: Record<string, any> = {
@@ -34,6 +39,7 @@ const mockConfig = {
   }),
 };
 const mockEmitter = { emit: jest.fn() };
+const mockNotifications = { sendEmail: jest.fn() };
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -47,6 +53,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfig },
         { provide: EventEmitter2, useValue: mockEmitter },
+        { provide: NotificationsService, useValue: mockNotifications },
       ],
     }).compile();
 
@@ -61,7 +68,7 @@ describe('AuthService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('creates user, emits event, and returns verification token', async () => {
+    it('creates user, emits event, and sends verification email', async () => {
       mockUsersService.findByEmail.mockResolvedValue(null);
       mockUsersService.create.mockResolvedValue({ id: 'uid', email: 'a@b.com', role: UserRole.BUYER });
       mockUsersService.createEmailVerification.mockResolvedValue('token123');
@@ -75,7 +82,12 @@ describe('AuthService', () => {
       expect(mockUsersService.create).toHaveBeenCalled();
       expect(mockEmitter.emit).toHaveBeenCalledWith('user.registered', { userId: 'uid', role: UserRole.BUYER });
       expect(mockUsersService.createEmailVerification).toHaveBeenCalledWith('uid');
-      expect(result.message).toContain('Registration successful');
+      expect(mockNotifications.sendEmail).toHaveBeenCalledWith(
+        'a@b.com',
+        'Verify your AgentHive account',
+        expect.stringContaining('token123'),
+      );
+      expect(result.message).toBe('verification_email_sent');
     });
   });
 
@@ -113,11 +125,14 @@ describe('AuthService', () => {
       await expect(service.login('a@b.com', 'wrong', mockRes)).rejects.toThrow(UnauthorizedException);
     });
 
-    it('throws UnauthorizedException when inactive', async () => {
+    it('throws ForbiddenException with EMAIL_NOT_VERIFIED when pending verification', async () => {
       const hash = await bcrypt.hash('pw', 10);
       mockUsersService.findByEmail.mockResolvedValue({ id: '1', passwordHash: hash, status: UserStatus.PENDING_VERIFY });
       const mockRes: any = { cookie: jest.fn() };
-      await expect(service.login('a@b.com', 'pw', mockRes)).rejects.toThrow(UnauthorizedException);
+      await expect(service.login('a@b.com', 'pw', mockRes)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: AuthErrorCode.EMAIL_NOT_VERIFIED }),
+      });
+      await expect(service.login('a@b.com', 'pw', mockRes)).rejects.toThrow(ForbiddenException);
     });
 
     it('returns sanitized user and issues tokens on success', async () => {
@@ -131,7 +146,9 @@ describe('AuthService', () => {
       });
       const mockRes: any = { cookie: jest.fn() };
       const result = await service.login('a@b.com', 'pw', mockRes);
-      expect(mockRes.cookie).toHaveBeenCalled();
+      expect(mockRes.cookie).toHaveBeenCalledWith('access_token', 'mock-token', expect.objectContaining({ sameSite: 'lax' }));
+      expect(mockRes.cookie).toHaveBeenCalledWith('refresh_token', expect.any(String), expect.objectContaining({ sameSite: 'lax' }));
+      expect(mockRes.cookie).toHaveBeenCalledWith('_uid', '1', expect.objectContaining({ sameSite: 'lax' }));
       expect(result.user).not.toHaveProperty('passwordHash');
     });
   });
@@ -170,8 +187,25 @@ describe('AuthService', () => {
         UserRole.FREELANCER,
         mockRes,
       );
-      expect(mockUsersService.create).toHaveBeenCalled();
+      expect(mockUsersService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ role: UserRole.FREELANCER }),
+      );
       expect(result.id).toBe('new');
+    });
+  });
+
+  describe('OAuth state', () => {
+    it('signs requested roles into OAuth state', () => {
+      const state = service.createOAuthState(UserRole.BUYER);
+      expect(state).toBe('mock-token');
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        { role: UserRole.BUYER },
+        expect.objectContaining({ expiresIn: '10m' }),
+      );
+    });
+
+    it('verifies signed OAuth state roles', () => {
+      expect(service.verifyOAuthState(UserRole.BUYER)).toBe(UserRole.BUYER);
     });
   });
 
@@ -195,7 +229,7 @@ describe('AuthService', () => {
       const mockRes: any = { cookie: jest.fn() };
       await service.refresh('rt', 'u', mockRes);
       expect(mockUsersService.revokeRefreshToken).toHaveBeenCalledWith('rt1');
-      expect(mockRes.cookie).toHaveBeenCalled();
+      expect(mockRes.cookie).toHaveBeenCalledWith('_uid', 'u', expect.any(Object));
     });
   });
 
@@ -204,7 +238,7 @@ describe('AuthService', () => {
       const mockRes: any = { clearCookie: jest.fn() };
       await service.logout('u', mockRes);
       expect(mockUsersService.revokeAllRefreshTokens).toHaveBeenCalledWith('u');
-      expect(mockRes.clearCookie).toHaveBeenCalledTimes(2);
+      expect(mockRes.clearCookie).toHaveBeenCalledTimes(3);
     });
   });
 

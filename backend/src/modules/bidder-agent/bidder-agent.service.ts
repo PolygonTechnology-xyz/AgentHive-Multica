@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OnEvent } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bull';
@@ -26,9 +26,7 @@ export class BidderAgentService {
     const existing = await this.agentRepo.findOne({ where: { userId } });
     if (existing) return existing;
 
-    return this.agentRepo.save(
-      this.agentRepo.create({ id: uuidv4(), userId }),
-    );
+    return this.agentRepo.save(this.agentRepo.create({ id: uuidv4(), userId }));
   }
 
   async findByUser(userId: string): Promise<BidderAgent> {
@@ -73,6 +71,19 @@ export class BidderAgentService {
     }
   }
 
+  @OnEvent('workforce-agent.connected')
+  async onWorkforceAgentConnected(event: { userId?: string; freelancerId?: string; freelancerUserId?: string }) {
+    const userId = event.userId ?? event.freelancerUserId ?? event.freelancerId;
+    if (!userId) return;
+
+    const agent = await this.agentRepo.findOne({ where: { userId } });
+    if (!agent) return;
+
+    agent.status = BidderAgentStatus.ACTIVE;
+    agent.autoBidEnabled = true;
+    await this.agentRepo.save(agent);
+  }
+
   @OnEvent('job.posted')
   async onJobPosted(event: JobPostedEvent) {
     const agents = await this.agentRepo.find({
@@ -105,6 +116,8 @@ export class BidderAgentService {
     agent: BidderAgent,
     job: any,
   ): Promise<void> {
+    if (agent.status !== BidderAgentStatus.ACTIVE || !agent.autoBidEnabled) return;
+
     const breakdown = this.scoringService.score(agent, job);
 
     if (breakdown.total < Number(agent.bidThreshold)) return;

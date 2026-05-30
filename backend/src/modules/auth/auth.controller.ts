@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -7,6 +8,7 @@ import {
   Query,
   Req,
   Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -25,9 +27,10 @@ import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/user.entity';
+import { AuthErrorCode, authErrorResponse } from './auth-error-code';
+import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 
 @ApiTags('Auth')
-@Throttle({ default: { limit: 10, ttl: 60000 } })
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
@@ -49,6 +52,7 @@ export class AuthController {
     summary: 'Login with email + password',
     description: 'Sets HttpOnly cookies: access_token (15min), refresh_token (7d), _uid.',
   })
+  @Throttle({ default: { limit: 10, ttl: 900000 } })
   @HttpCode(200)
   @Post('login')
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
@@ -63,13 +67,15 @@ export class AuthController {
     const refreshToken = req.cookies?.refresh_token;
     const userId = req.cookies?._uid;
     if (!refreshToken || !userId) {
-      return { message: 'No refresh token' };
+      throw new UnauthorizedException(
+        authErrorResponse(AuthErrorCode.REFRESH_TOKEN_MISSING, 'No refresh token'),
+      );
     }
     await this.authService.refresh(refreshToken, userId, res);
     return { message: 'Tokens refreshed' };
   }
 
-  @ApiOperation({ summary: 'Logout — clears cookies and revokes refresh token' })
+  @ApiOperation({ summary: 'Logout - clears cookies and revokes refresh token' })
   @ApiBearerAuth('JWT')
   @ApiCookieAuth('access_token')
   @HttpCode(200)
@@ -82,18 +88,38 @@ export class AuthController {
 
   @ApiOperation({ summary: 'Begin Google OAuth flow (302 redirect to Google)' })
   @Get('google')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleOAuthGuard)
   googleAuth() {
-    // Guard initiates OAuth redirect
+    // Guard initiates OAuth redirect.
   }
 
-  @ApiOperation({ summary: 'Google OAuth callback — sets cookies and redirects to frontend' })
+  @ApiOperation({ summary: 'Google OAuth callback - sets cookies and redirects to frontend' })
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleCallback(@Req() req: Request, @Res() res: Response) {
-    const oauthUser = req.user as any;
-    await this.authService.loginOAuth(oauthUser, undefined, res);
-    res.redirect(process.env.FRONTEND_URL || 'http://localhost:3000');
+    const oauthUser = req.user as {
+      oauthId: string;
+      email: string;
+      displayName: string;
+      provider: string;
+    };
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const role = this.authService.verifyOAuthState(req.query.state as string | undefined);
+
+    try {
+      await this.authService.loginOAuth(oauthUser, role, res);
+      res.redirect(frontendUrl);
+    } catch (err) {
+      if (err instanceof BadRequestException) {
+        const response = err.getResponse();
+        const code = typeof response === 'object' && response !== null ? (response as { code?: string }).code : undefined;
+        if (code === AuthErrorCode.OAUTH_ROLE_REQUIRED) {
+          res.redirect(`${frontendUrl}/register?oauthRoleRequired=1`);
+          return;
+        }
+      }
+      throw err;
+    }
   }
 
   @ApiOperation({ summary: 'Get current authenticated user' })
