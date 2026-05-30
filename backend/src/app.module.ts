@@ -15,6 +15,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { BidderAgentModule } from './modules/bidder-agent/bidder-agent.module';
+import { WorkforceAgentsModule } from './modules/workforce-agent/workforce-agents.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { DispatchModule } from './modules/dispatch/dispatch.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
@@ -54,6 +55,7 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
     AuthModule,
     JobsModule,
     BidderAgentModule,
+    WorkforceAgentsModule,
     PaymentsModule,
     DispatchModule,
     DeliveryModule,

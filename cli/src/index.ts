@@ -4,6 +4,8 @@ import { authLogin } from './commands/auth-login';
 import { authLogout } from './commands/auth-logout';
 import { agentConnect } from './commands/agent-connect';
 import { agentList } from './commands/agent-list';
+import { agentDeactivate } from './commands/agent-deactivate';
+import { agentRemove } from './commands/agent-remove';
 import { deliver } from './commands/deliver';
 import { ui } from './lib/ui';
 
@@ -54,6 +56,27 @@ export function buildProgram(): Command {
     .action(async (opts, cmd) => {
       const apiUrl = cmd.optsWithGlobals().apiUrl as string | undefined;
       await agentList({ ...opts, apiUrl });
+    });
+
+
+
+  agent
+    .command('deactivate')
+    .argument('<id>', 'Workforce Agent id')
+    .description('Deactivate a Workforce Agent.')
+    .action(async (id, cmd) => {
+      const apiUrl = cmd.optsWithGlobals().apiUrl as string | undefined;
+      await agentDeactivate(id, { apiUrl });
+    });
+
+  agent
+    .command('remove')
+    .argument('<id>', 'Workforce Agent id')
+    .description('Remove a Workforce Agent.')
+    .option('--yes', 'Skip confirmation prompt')
+    .action(async (id, opts, cmd) => {
+      const apiUrl = cmd.optsWithGlobals().apiUrl as string | undefined;
+      await agentRemove(id, { yes: opts.yes, apiUrl });
     });
 
   program

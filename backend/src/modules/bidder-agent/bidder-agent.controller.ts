@@ -7,7 +7,7 @@ import {
   ApiPropertyOptional,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { BearerOnlyJwtAuthGuard } from '../../common/guards/bearer-only-jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -79,9 +79,8 @@ class TestScoreDto {
 
 @ApiTags('Bidder Agent')
 @ApiBearerAuth('JWT')
-@ApiCookieAuth('access_token')
 @Controller('bidder-agent')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(BearerOnlyJwtAuthGuard, RolesGuard)
 @Roles('freelancer')
 export class BidderAgentController {
   constructor(private bidderAgentService: BidderAgentService) {}

@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as cookieParser from 'cookie-parser';
+import * as express from 'express';
+import { join } from 'path';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
@@ -16,6 +18,7 @@ async function bootstrap() {
 
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cookieParser(config.get<string>('cookie.secret')));
+  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   app.enableCors({
     origin: frontendUrl,
@@ -48,6 +51,7 @@ async function bootstrap() {
     .addTag('Users', 'Profile management')
     .addTag('Jobs', 'Job posting, listing, bids')
     .addTag('Bidder Agent', 'AI bidder agent config and scoring')
+    .addTag('Workforce Agents', 'CLI Workforce Agent registry')
     .addTag('Payments', 'Escrow funding, release, refund')
     .addTag('Dispatch & Delivery', 'Job dispatch, delivery submission, revisions')
     .addTag('Reviews', 'Buyer→Freelancer ratings')

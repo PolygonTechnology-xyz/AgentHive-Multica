@@ -17,6 +17,11 @@ export class BidderAgentProcessor {
     @InjectRepository(Job) private jobRepo: Repository<Job>,
   ) {}
 
+  @Process('reindex')
+  async reindex(bullJob: BullJob<{ userId: string }>) {
+    await this.bidderAgentService.reindexForUser(bullJob.data.userId);
+  }
+
   @Process('score-job')
   async process(bullJob: BullJob<{ agentId: string; jobId: string }>) {
     const { agentId, jobId } = bullJob.data;

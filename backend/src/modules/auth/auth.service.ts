@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -10,9 +11,11 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Response } from 'express';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
 import { User, UserRole } from '../users/user.entity';
 import { RegisterDto } from './dto/register.dto';
+import { JwtBlacklistService } from './jwt-blacklist.service';
 
 const COOKIE_OPTS = (maxAge: number) => ({
   httpOnly: true,
@@ -22,6 +25,12 @@ const COOKIE_OPTS = (maxAge: number) => ({
   path: '/',
 });
 
+export interface LoginResponse {
+  user: Omit<User, 'passwordHash'>;
+  accessToken: string;
+  expiresIn: number;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -29,6 +38,7 @@ export class AuthService {
     private jwtService: JwtService,
     private config: ConfigService,
     private eventEmitter: EventEmitter2,
+    @Optional() private blacklistService: JwtBlacklistService = new JwtBlacklistService(),
   ) {}
 
   async register(dto: RegisterDto): Promise<{ message: string }> {
@@ -44,8 +54,6 @@ export class AuthService {
 
     this.eventEmitter.emit('user.registered', { userId: user.id, role: user.role });
     const token = await this.usersService.createEmailVerification(user.id);
-    // TODO: send email via NotificationsService when available
-    // For now log the token (dev only)
     if (process.env.NODE_ENV !== 'production') {
       console.log(`[DEV] Email verification token for ${user.email}: ${token}`);
     }
@@ -61,7 +69,7 @@ export class AuthService {
     return { message: 'Email verified successfully. You can now log in.' };
   }
 
-  async login(email: string, password: string, res: Response): Promise<{ user: Partial<User> }> {
+  async login(email: string, password: string, res: Response): Promise<LoginResponse> {
     const user = await this.usersService.findByEmail(email);
     if (!user || !user.passwordHash) throw new UnauthorizedException('Invalid credentials');
 
@@ -72,8 +80,8 @@ export class AuthService {
       throw new UnauthorizedException('Account not active. Please verify your email first.');
     }
 
-    await this.issueTokens(user, res);
-    return { user: this.sanitize(user) };
+    const issued = await this.issueTokens(user, res);
+    return { user: this.sanitize(user), accessToken: issued.accessToken, expiresIn: issued.expiresIn };
   }
 
   async loginOAuth(
@@ -112,17 +120,27 @@ export class AuthService {
     await this.issueTokens(user, res);
   }
 
-  async logout(userId: string, res: Response): Promise<void> {
+  async logout(
+    userId: string,
+    tokenMetaOrRes: { jti?: string; exp?: number } | Response,
+    maybeRes?: Response,
+  ): Promise<void> {
+    const tokenMeta = maybeRes ? (tokenMetaOrRes as { jti?: string; exp?: number }) : {};
+    const res = maybeRes ?? (tokenMetaOrRes as Response);
     await this.usersService.revokeAllRefreshTokens(userId);
+    if (tokenMeta.jti && tokenMeta.exp) {
+      await this.blacklistService.blacklist(tokenMeta.jti, Math.max(tokenMeta.exp - Math.floor(Date.now() / 1000), 0));
+    }
     res.clearCookie('access_token', { path: '/' });
     res.clearCookie('refresh_token', { path: '/' });
   }
 
-  private async issueTokens(user: User, res: Response): Promise<void> {
-    const payload = { sub: user.id, email: user.email, role: user.role };
+  private async issueTokens(user: User, res: Response): Promise<{ accessToken: string; expiresIn: number }> {
+    const expiresIn = parseExpirySeconds(this.config.get<string>('jwt.accessExpiry') ?? '15m');
+    const payload = { sub: user.id, email: user.email, role: user.role, jti: uuidv4() };
 
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.config.get<string>('jwt.accessExpiry'),
+      expiresIn,
     });
 
     const refreshToken = randomBytes(40).toString('hex');
@@ -132,12 +150,26 @@ export class AuthService {
 
     await this.usersService.saveRefreshToken(user.id, refreshToken, expiresAt);
 
-    res.cookie('access_token', accessToken, COOKIE_OPTS(15 * 60 * 1000));
+    res.cookie('access_token', accessToken, COOKIE_OPTS(expiresIn * 1000));
     res.cookie('refresh_token', refreshToken, COOKIE_OPTS(refreshMs));
+    res.cookie('_uid', user.id, COOKIE_OPTS(refreshMs));
+
+    return { accessToken, expiresIn };
   }
 
-  sanitize(user: User): Partial<User> {
-    const { passwordHash, ...safe } = user as any;
+  sanitize(user: User): Omit<User, 'passwordHash'> {
+    const { passwordHash: _passwordHash, ...safe } = user;
     return safe;
   }
+}
+
+function parseExpirySeconds(value: string): number {
+  const match = /^(\d+)([smhd])?$/.exec(value);
+  if (!match) return 15 * 60;
+  const amount = Number(match[1]);
+  const unit = match[2] ?? 's';
+  if (unit === 'm') return amount * 60;
+  if (unit === 'h') return amount * 3600;
+  if (unit === 'd') return amount * 86400;
+  return amount;
 }

@@ -1,15 +1,16 @@
-import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OnEvent } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { BidderAgent, BidderAgentStatus } from './bidder-agent.entity';
 import { ScoringService } from './scoring.service';
 import { BidsService } from '../bids/bids.service';
 import { JobPostedEvent } from '../jobs/jobs.service';
 import { BidType } from '../bids/bid.entity';
 import { v4 as uuidv4 } from 'uuid';
+import { WorkforceAgent, WorkforceAgentStatus } from '../workforce-agent/workforce-agent.entity';
 
 export const BIDDER_QUEUE = 'bidder-agent';
 
@@ -17,6 +18,7 @@ export const BIDDER_QUEUE = 'bidder-agent';
 export class BidderAgentService {
   constructor(
     @InjectRepository(BidderAgent) private agentRepo: Repository<BidderAgent>,
+    @Optional() @InjectRepository(WorkforceAgent) private workforceAgentRepo: Repository<WorkforceAgent>,
     @InjectQueue(BIDDER_QUEUE) private bidderQueue: Queue,
     private scoringService: ScoringService,
     private bidsService: BidsService,
@@ -27,7 +29,7 @@ export class BidderAgentService {
     if (existing) return existing;
 
     return this.agentRepo.save(
-      this.agentRepo.create({ id: uuidv4(), userId }),
+      this.agentRepo.create({ id: uuidv4(), userId, status: BidderAgentStatus.DORMANT, skillIndex: [] }),
     );
   }
 
@@ -57,6 +59,25 @@ export class BidderAgentService {
     if (dto.maxBidAmount !== undefined) agent.maxBidAmount = dto.maxBidAmount;
     if (dto.autoBidEnabled !== undefined) agent.autoBidEnabled = dto.autoBidEnabled;
     if (dto.status !== undefined) agent.status = dto.status;
+
+    return this.agentRepo.save(agent);
+  }
+
+
+  async reindexForUser(userId: string): Promise<BidderAgent> {
+    const agent = await this.provision(userId);
+    const workforceAgents = await this.workforceAgentRepo.find({
+      where: { userId, status: In([WorkforceAgentStatus.ACTIVE, WorkforceAgentStatus.INACTIVE]) },
+    });
+    const activeAgents = workforceAgents.filter((workforceAgent) => workforceAgent.status === WorkforceAgentStatus.ACTIVE);
+    const skillIndex = Array.from(new Set(activeAgents.flatMap((workforceAgent) => workforceAgent.skillIndex ?? [])));
+
+    agent.skillIndex = skillIndex;
+    if (workforceAgents.length === 0) {
+      agent.status = BidderAgentStatus.DORMANT;
+    } else if (agent.status === BidderAgentStatus.DORMANT && activeAgents.length > 0) {
+      agent.status = BidderAgentStatus.ACTIVE;
+    }
 
     return this.agentRepo.save(agent);
   }

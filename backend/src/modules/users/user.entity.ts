@@ -3,7 +3,6 @@ import {
   CreateDateColumn,
   Entity,
   Index,
-  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -39,13 +38,26 @@ export class User {
   status: UserStatus;
 
   @Column({ name: 'display_name', length: 255, nullable: true })
-  displayName: string;
+  displayName: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  bio: string | null;
+
+  @Index({ unique: true })
+  @Column({ length: 64, nullable: true })
+  handle: string | null;
+
+  @Column({ type: 'json', nullable: true })
+  skills: string[] | null;
+
+  @Column({ name: 'photo_url', length: 512, nullable: true })
+  photoUrl: string | null;
 
   @Column({ name: 'oauth_provider', length: 50, nullable: true })
-  oauthProvider: string;
+  oauthProvider: string | null;
 
   @Column({ name: 'oauth_id', length: 255, nullable: true })
-  oauthId: string;
+  oauthId: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

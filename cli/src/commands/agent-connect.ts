@@ -1,6 +1,6 @@
 import prompts from 'prompts';
 import * as api from '../lib/api';
-import { readConfig, updateConfig } from '../lib/config';
+import { readConfig } from '../lib/config';
 import { ui } from '../lib/ui';
 
 export interface AgentConnectOptions {
@@ -11,31 +11,19 @@ export interface AgentConnectOptions {
 
 export interface AgentConnectDeps {
   prompt?: typeof prompts;
-  getAgent?: typeof api.getBidderAgent;
-  updateAgent?: typeof api.updateBidderAgent;
+  createAgent?: typeof api.createWorkforceAgent;
   readCfg?: typeof readConfig;
-  writeCfg?: typeof updateConfig;
   out?: typeof ui;
 }
 
-/**
- * Build the natural-language config sent to the bidder-agent's scoring engine
- * from the operator-supplied name + capabilities list.
- */
-export function buildNlConfig(name: string, capabilities: string[]): string {
-  const caps = capabilities.map((c) => c.trim()).filter((c) => c.length > 0);
-  if (caps.length === 0) {
-    return `Workforce Agent "${name}".`;
-  }
-  return `Workforce Agent "${name}". Bid on jobs involving: ${caps.join(', ')}.`;
+export function parseCapabilities(value: string): string[] {
+  return value.split(',').map((capability) => capability.trim()).filter(Boolean);
 }
 
 export function makeAgentConnect(deps: AgentConnectDeps = {}) {
   const prompt = deps.prompt ?? prompts;
-  const getAgent = deps.getAgent ?? api.getBidderAgent;
-  const updateAgent = deps.updateAgent ?? api.updateBidderAgent;
+  const createAgent = deps.createAgent ?? api.createWorkforceAgent;
   const readCfg = deps.readCfg ?? readConfig;
-  const writeCfg = deps.writeCfg ?? updateConfig;
   const out = deps.out ?? ui;
 
   return async function run(opts: AgentConnectOptions = {}): Promise<void> {
@@ -60,43 +48,27 @@ export function makeAgentConnect(deps: AgentConnectDeps = {}) {
           : {
               type: 'text',
               name: 'capabilities',
-              message: 'Capabilities (comma-separated, e.g. react, nextjs, copywriting)',
+              message: 'Skills (comma-separated, e.g. react, nextjs, copywriting)',
               validate: (v: string) =>
-                v && v.trim().length > 0 ? true : 'At least one capability',
+                v && v.trim().length > 0 ? true : 'At least one skill',
             },
       ].filter(Boolean) as prompts.PromptObject[],
     );
 
     const name = (opts.name ?? (answers as { name?: string }).name ?? '').trim();
     const capsRaw = opts.capabilities ?? (answers as { capabilities?: string }).capabilities ?? '';
+    const skills = parseCapabilities(capsRaw);
 
-    if (!name || !capsRaw) {
+    if (!name || skills.length === 0) {
       out.error('Cancelled.');
       throw new Error('Missing agent details');
     }
 
-    const capabilities = capsRaw.split(',').map((c) => c.trim()).filter(Boolean);
-    const nlConfig = buildNlConfig(name, capabilities);
+    const agent = await createAgent({ name, skills }, { apiUrl: opts.apiUrl });
 
-    // Ensure an agent record exists on the server side (creates on first GET in some
-    // backends; harmless when one already exists).
-    let existing: api.BidderAgent | null = null;
-    try {
-      existing = await getAgent({ apiUrl: opts.apiUrl });
-    } catch (err) {
-      out.warn(`Could not fetch existing agent: ${(err as Error).message}`);
-    }
-
-    const updated = await updateAgent({ nlConfig }, { apiUrl: opts.apiUrl });
-    const agentId = updated.id ?? existing?.id;
-
-    if (agentId) {
-      writeCfg({ agent_id: agentId });
-    }
-
-    out.success(`Agent "${out.bold(name)}" connected.`);
-    out.info(`Capabilities: ${capabilities.join(', ')}`);
-    if (agentId) out.info(`Agent id: ${out.dim(agentId)}`);
+    out.success(`Agent "${out.bold(agent.name)}" connected.`);
+    out.info(`Agent id: ${out.dim(agent.id)}`);
+    out.info(`Status: ${agent.status}`);
   };
 }
 

@@ -26,6 +26,8 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/user.entity';
 
+type AuthenticatedUser = User & { jwtId?: string; jwtExp?: number };
+
 @ApiTags('Auth')
 @Throttle({ default: { limit: 10, ttl: 60000 } })
 @Controller('auth')
@@ -75,8 +77,12 @@ export class AuthController {
   @HttpCode(200)
   @Post('logout')
   @UseGuards(JwtAuthGuard)
-  async logout(@CurrentUser() user: User, @Res({ passthrough: true }) res: Response) {
-    await this.authService.logout(user.id, res);
+  async logout(@CurrentUser() user: AuthenticatedUser, @Res({ passthrough: true }) res: Response) {
+    if (user.jwtId || user.jwtExp) {
+      await this.authService.logout(user.id, { jti: user.jwtId, exp: user.jwtExp }, res);
+    } else {
+      await this.authService.logout(user.id, res);
+    }
     return { message: 'Logged out' };
   }
 

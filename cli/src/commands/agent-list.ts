@@ -8,13 +8,13 @@ export interface AgentListOptions {
 }
 
 export interface AgentListDeps {
-  getAgent?: typeof api.getBidderAgent;
+  listAgents?: typeof api.listWorkforceAgents;
   readCfg?: typeof readConfig;
   out?: typeof ui;
 }
 
 export function makeAgentList(deps: AgentListDeps = {}) {
-  const getAgent = deps.getAgent ?? api.getBidderAgent;
+  const listAgents = deps.listAgents ?? api.listWorkforceAgents;
   const readCfg = deps.readCfg ?? readConfig;
   const out = deps.out ?? ui;
 
@@ -25,20 +25,18 @@ export function makeAgentList(deps: AgentListDeps = {}) {
       throw new Error('Not authenticated');
     }
 
-    const agent = await getAgent({ apiUrl: opts.apiUrl });
+    const agents = await listAgents({ apiUrl: opts.apiUrl });
 
     if (opts.json) {
-      out.plain(JSON.stringify(agent, null, 2));
+      out.plain(JSON.stringify(agents, null, 2));
       return;
     }
 
-    out.plain(out.bold('Workforce Agents:'));
-    out.plain(`  • id:            ${agent.id ?? '-'}`);
-    out.plain(`  • status:        ${agent.status ?? 'active'}`);
-    out.plain(`  • auto-bid:      ${agent.autoBidEnabled ? 'on' : 'off'}`);
-    out.plain(`  • bid threshold: ${agent.bidThreshold ?? '-'}`);
-    out.plain(`  • max bid:       ${agent.maxBidAmount ?? '-'}`);
-    out.plain(`  • config:        ${agent.nlConfig ?? '(none)'}`);
+    out.plain('id | name | status | skills');
+    for (const agent of agents) {
+      const skills = agent.skillIndex ?? agent.skills ?? [];
+      out.plain(`${agent.id} | ${agent.name} | ${agent.status} | ${skills.join(', ')}`);
+    }
   };
 }
 

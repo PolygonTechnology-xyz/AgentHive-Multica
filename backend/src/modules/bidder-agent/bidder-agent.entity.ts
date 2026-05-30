@@ -9,6 +9,7 @@ import {
 import { User } from '../users/user.entity';
 
 export enum BidderAgentStatus {
+  DORMANT = 'dormant',
   ACTIVE = 'active',
   PAUSED = 'paused',
   DISABLED = 'disabled',
@@ -25,8 +26,11 @@ export class BidderAgent {
   @Column({ name: 'user_id', unique: true })
   userId: string;
 
-  @Column({ type: 'enum', enum: BidderAgentStatus, default: BidderAgentStatus.ACTIVE })
+  @Column({ type: 'enum', enum: BidderAgentStatus, default: BidderAgentStatus.DORMANT })
   status: BidderAgentStatus;
+
+  @Column({ name: 'skill_index', type: 'json', nullable: true })
+  skillIndex: string[] | null;
 
   @Column({ name: 'nl_config', type: 'text', nullable: true })
   nlConfig: string;
