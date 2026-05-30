@@ -3,7 +3,7 @@
 **Version:** 1.0 (PM-derived from BRD v1.0 + SRS v2.0)  
 **Date:** 2026-05-25  
 **Status:** Ready for TL technical review  
-**Stack:** NestJS (backend REST API v1) · Next.js App Router (frontend) · MySQL · Ppay MFS · SendGrid
+**Stack:** NestJS (backend REST API v1) · Next.js App Router (frontend) · PostgreSQL · Ppay MFS · SendGrid
 
 ---
 

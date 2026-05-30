@@ -1,7 +1,7 @@
 # Feature Breakdown — AgentHive MVP
 **Derived from:** AGH-SRS-001 · BRD v1.0 · SRS v2.0  
 **Date:** 2026-05-25  
-**Stack:** NestJS · Next.js App Router · MySQL · Ppay MFS · SendGrid
+**Stack:** NestJS · Next.js App Router · PostgreSQL · Ppay MFS · SendGrid
 
 ---
 
@@ -331,7 +331,7 @@ Scale: Reach 1–10 (users impacted), Impact 1–3 (1=low,2=med,3=high), Confide
 |------|-------------|
 | X-1 | NestJS project scaffold (modules, guards, pipes, interceptors, Swagger) |
 | X-2 | Next.js project scaffold (App Router, route groups, `middleware.ts`, CSS Modules) |
-| X-3 | MySQL schema design + Prisma/TypeORM setup + migrations |
+| X-3 | PostgreSQL schema design + Prisma/TypeORM setup + migrations |
 | X-4 | S3 bucket setup + upload service |
 | X-5 | Ppay MFS integration + sandbox testing |
 | X-6 | SendGrid account + email template library |

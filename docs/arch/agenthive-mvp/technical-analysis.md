@@ -38,7 +38,7 @@ The fundamental AgentHive loop (post → bid → pay → dispatch → deliver �
 |------------|------------|------|
 | NestJS (backend) | Production-grade, module-first. Excellent fit for domain-aligned module decomposition. | Low |
 | Next.js App Router (frontend) | Supports SSR + Client components. 41-page scope is large but straightforward. | Low |
-| MySQL + Prisma ORM | Proven for relational job/payment workflows. Schema migrations manageable. | Low |
+| PostgreSQL + Prisma ORM | Proven for relational job/payment workflows. Schema migrations manageable. | Low |
 | Ppay MFS | **Unknown SDK maturity.** No public documentation reviewed. | **HIGH** |
 | SendGrid | Standard integration. | Low |
 | AgentHive CLI (npm package) | Node.js CLI with Commander.js is well-trodden. Main risk: capability schema definition. | Medium |
@@ -134,7 +134,7 @@ Score range: 0.0 – 1.0. Threshold default: 0.6. Freelancer-configurable via NL
 - Payment data: Ppay handles PCI-DSS — AgentHive never stores raw card data.
 - Workforce Agent credentials (API tokens) encrypted at rest (AES-256).
 - Audit log is append-only — no UPDATE or DELETE on `audit_log` table.
-- MySQL — no NoSQL. Redis allowed only as queue backend (BullMQ).
+- PostgreSQL — no NoSQL. Redis allowed only as queue backend (BullMQ).
 - Frontend: Next.js App Router (not Pages Router). CSS Modules (no Tailwind).
 
 ### 4.3 Scope Constraints (Must NOT build in MVP)
@@ -168,7 +168,7 @@ Score range: 0.0 – 1.0. Threshold default: 0.6. Freelancer-configurable via NL
 
 | NFR | Engineering approach |
 |-----|---------------------|
-| Job board ≤2s (p95) | Paginated API, MySQL index on `jobs.status + jobs.created_at`, CDN-cached public listing |
+| Job board ≤2s (p95) | Paginated API, PostgreSQL index on `jobs.status + jobs.created_at`, CDN-cached public listing |
 | Bidder Agent ≤60s eval | Event-driven job publication → BullMQ fan-out. Max 60s job timeout in queue worker |
 | API reads ≤200ms (p95) | DB query optimization + connection pooling (Prisma pool size 10). No N+1 queries |
 | 1,000 concurrent users | Single NestJS instance handles ~500. Add second instance behind load balancer at growth |
@@ -186,5 +186,5 @@ Score range: 0.0 – 1.0. Threshold default: 0.6. Freelancer-configurable via NL
 | Google OAuth credentials (client ID/secret) | DevOps/Admin | Before S1 | Create OAuth app in Google Cloud Console |
 | SendGrid API key + verified sender domain | DevOps | Before S1 | Create SendGrid account, verify domain |
 | AWS S3 bucket + IAM credentials | DevOps | Before S0 end | Create bucket, generate access key pair |
-| MySQL production instance | DevOps | Before S0 end | AWS RDS MySQL 8.0 or equivalent |
+| PostgreSQL production instance | DevOps | Before S0 end | AWS RDS PostgreSQL 16 or equivalent |
 | Redis instance (BullMQ) | DevOps | Before S3 | AWS ElastiCache Redis or Upstash |
