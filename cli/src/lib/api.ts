@@ -135,6 +135,26 @@ export async function updateBidderAgent(
   return res.data as BidderAgent;
 }
 
+export interface WorkforceAgent {
+  id: string;
+  userId: string;
+  name: string;
+  capabilities: string[];
+  connectedAt: string;
+}
+
+export async function registerWorkforceAgent(
+  body: { name: string; capabilities: string[] },
+  opts: ApiClientOptions = {},
+): Promise<WorkforceAgent> {
+  const client = createClient(opts);
+  const res = await client.post('/workforce-agents', body);
+  if (res.status < 200 || res.status >= 300) {
+    throw apiError(res, 'Failed to register workforce agent');
+  }
+  return res.data as WorkforceAgent;
+}
+
 export interface DeliverPayload {
   message?: string;
   attachments?: { name: string; url: string }[];

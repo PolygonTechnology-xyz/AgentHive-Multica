@@ -4,16 +4,20 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { getQueueToken } from '@nestjs/bull';
 import { BidderAgentService, BIDDER_QUEUE } from './bidder-agent.service';
 import { BidderAgent, BidderAgentStatus } from './bidder-agent.entity';
+import { BidderAgentPromptHistory } from './bidder-agent-prompt-history.entity';
 import { ScoringService } from './scoring.service';
 import { BidsService } from '../bids/bids.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { BidType } from '../bids/bid.entity';
 
 describe('BidderAgentService', () => {
   let service: BidderAgentService;
   let agentRepo: any;
+  let historyRepo: any;
   let queue: any;
   let scoring: any;
   let bids: any;
+  let auditLog: any;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -23,20 +27,30 @@ describe('BidderAgentService', () => {
       create: jest.fn((d) => d),
       save: jest.fn((d) => Promise.resolve(d)),
     };
+    historyRepo = {
+      create: jest.fn((d) => d),
+      save: jest.fn((d) => Promise.resolve(d)),
+      count: jest.fn().mockResolvedValue(1),
+      find: jest.fn().mockResolvedValue([]),
+      remove: jest.fn().mockResolvedValue(undefined),
+    };
     queue = { add: jest.fn() };
     scoring = {
       score: jest.fn(),
       parseNlConfig: jest.fn().mockReturnValue({ preferredCategories: ['web'] }),
     };
-    bids = { create: jest.fn(), findByBidder: jest.fn() };
+    bids = { create: jest.fn().mockResolvedValue({ id: 'bid-1' }), findByBidder: jest.fn() };
+    auditLog = { write: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BidderAgentService,
         { provide: getRepositoryToken(BidderAgent), useValue: agentRepo },
+        { provide: getRepositoryToken(BidderAgentPromptHistory), useValue: historyRepo },
         { provide: getQueueToken(BIDDER_QUEUE), useValue: queue },
         { provide: ScoringService, useValue: scoring },
         { provide: BidsService, useValue: bids },
+        { provide: AuditLogService, useValue: auditLog },
       ],
     }).compile();
     service = module.get<BidderAgentService>(BidderAgentService);

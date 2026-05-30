@@ -5,8 +5,10 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { Repository } from 'typeorm';
 import { BidderAgent, BidderAgentStatus } from './bidder-agent.entity';
+import { BidderAgentPromptHistory } from './bidder-agent-prompt-history.entity';
 import { ScoringService } from './scoring.service';
 import { BidsService } from '../bids/bids.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { JobPostedEvent } from '../jobs/jobs.service';
 import { BidType } from '../bids/bid.entity';
 import { v4 as uuidv4 } from 'uuid';
@@ -17,9 +19,11 @@ export const BIDDER_QUEUE = 'bidder-agent';
 export class BidderAgentService {
   constructor(
     @InjectRepository(BidderAgent) private agentRepo: Repository<BidderAgent>,
+    @InjectRepository(BidderAgentPromptHistory) private historyRepo: Repository<BidderAgentPromptHistory>,
     @InjectQueue(BIDDER_QUEUE) private bidderQueue: Queue,
     private scoringService: ScoringService,
     private bidsService: BidsService,
+    private auditLogService: AuditLogService,
   ) {}
 
   async provision(userId: string): Promise<BidderAgent> {
@@ -50,8 +54,11 @@ export class BidderAgentService {
     const agent = await this.findByUser(userId);
 
     if (dto.nlConfig !== undefined) {
+      const parsedRules = this.scoringService.parseNlConfig(dto.nlConfig);
       agent.nlConfig = dto.nlConfig;
-      agent.scoringRules = this.scoringService.parseNlConfig(dto.nlConfig);
+      agent.scoringRules = parsedRules;
+
+      await this.savePromptHistory(agent.id, dto.nlConfig, parsedRules);
     }
     if (dto.bidThreshold !== undefined) agent.bidThreshold = dto.bidThreshold;
     if (dto.maxBidAmount !== undefined) agent.maxBidAmount = dto.maxBidAmount;
@@ -59,6 +66,35 @@ export class BidderAgentService {
     if (dto.status !== undefined) agent.status = dto.status;
 
     return this.agentRepo.save(agent);
+  }
+
+  private async savePromptHistory(
+    agentId: string,
+    nlConfig: string,
+    parsedRules: BidderAgent['scoringRules'],
+  ): Promise<void> {
+    await this.historyRepo.save(
+      this.historyRepo.create({ id: uuidv4(), agentId, nlConfig, parsedRules }),
+    );
+
+    const count = await this.historyRepo.count({ where: { agentId } });
+    if (count > 20) {
+      const oldest = await this.historyRepo.find({
+        where: { agentId },
+        order: { createdAt: 'ASC' },
+        take: count - 20,
+      });
+      await this.historyRepo.remove(oldest);
+    }
+  }
+
+  async findPromptHistory(userId: string): Promise<BidderAgentPromptHistory[]> {
+    const agent = await this.findByUser(userId);
+    return this.historyRepo.find({
+      where: { agentId: agent.id },
+      order: { createdAt: 'DESC' },
+      take: 20,
+    });
   }
 
   async testScore(userId: string, jobSnapshot: { title: string; description: string; category?: string; skillsRequired?: string[]; budgetMin?: number; budgetMax?: number; deadline?: Date }) {
@@ -92,13 +128,6 @@ export class BidderAgentService {
   async processScoreJob(agentId: string, jobId: string): Promise<void> {
     const agent = await this.agentRepo.findOne({ where: { id: agentId } });
     if (!agent || agent.status !== BidderAgentStatus.ACTIVE || !agent.autoBidEnabled) return;
-
-    // Import job inline to avoid circular dep
-    const { JobsService } = await import('../jobs/jobs.service');
-
-    // We'll use a workaround: the processor will call this with the job entity
-    // This method is called from the Bull processor with the full job object
-    // See BidderAgentProcessor.process()
   }
 
   async processScoreJobWithData(
@@ -114,13 +143,22 @@ export class BidderAgentService {
       : Number(job.budgetMax ?? job.budgetMin ?? 100);
 
     try {
-      await this.bidsService.create(
+      const bid = await this.bidsService.create(
         job.id,
         agent.userId,
         { amount: bidAmount, proposal: `Auto-bid from Bidder Agent (score: ${breakdown.total})` },
         BidType.AUTO,
         breakdown.total,
       );
+
+      await this.auditLogService.write({
+        actorId: agent.userId,
+        actorType: 'user',
+        action: 'BID_CREATED_AUTO',
+        resourceType: 'bids',
+        resourceId: bid?.id,
+        metadata: { jobId: job.id, score: breakdown.total, amount: bidAmount },
+      });
     } catch {
       // Conflict (already bid) or job not open — skip silently
     }

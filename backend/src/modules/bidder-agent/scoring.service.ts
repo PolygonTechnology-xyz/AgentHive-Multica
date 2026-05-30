@@ -93,9 +93,18 @@ export class ScoringService {
     // Extract keywords for categories
     const categoryKeywords = [
       'web', 'mobile', 'design', 'writing', 'marketing', 'data', 'ai',
-      'backend', 'frontend', 'fullstack', 'devops', 'security',
+      'backend', 'frontend', 'fullstack', 'devops', 'security', 'python',
     ];
-    rules.preferredCategories = categoryKeywords.filter((kw) => lower.includes(kw));
+    const directCategories = categoryKeywords.filter((kw) => lower.includes(kw));
+
+    // "focus on X jobs" / "X jobs" → extract the X as a category
+    const focusMatches = lower.matchAll(/focus\s+on\s+([\w]+)\s+jobs?/g);
+    const focusCategories: string[] = [];
+    for (const m of focusMatches) {
+      const cat = m[1].toLowerCase();
+      if (!directCategories.includes(cat)) focusCategories.push(cat);
+    }
+    rules.preferredCategories = [...directCategories, ...focusCategories];
 
     // Extract skill keywords (simple: look for common tech terms)
     const skillKeywords = [
@@ -104,6 +113,15 @@ export class ScoringService {
       'postgres', 'mongodb', 'redis', 'aws', 'docker', 'kubernetes',
     ];
     rules.preferredSkills = skillKeywords.filter((kw) => lower.includes(kw));
+
+    // "bid N% below budget" / "bid N% above budget"
+    const priceMatch = lower.match(/(\d+)\s*%\s*(below|above)\s+budget/);
+    if (priceMatch) {
+      rules.priceStrategy = {
+        type: priceMatch[2] as 'above' | 'below',
+        pct: parseInt(priceMatch[1], 10),
+      };
+    }
 
     return rules;
   }

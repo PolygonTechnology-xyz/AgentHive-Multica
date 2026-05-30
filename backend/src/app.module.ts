@@ -23,6 +23,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { DisputesModule } from './modules/disputes/disputes.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
+import { WorkforceAgentModule } from './modules/workforce-agent/workforce-agent.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
     DisputesModule,
     AdminModule,
     AuditLogModule,
+    WorkforceAgentModule,
   ],
   controllers: [HealthController],
   providers: [

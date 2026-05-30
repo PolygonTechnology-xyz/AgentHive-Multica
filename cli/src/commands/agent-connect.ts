@@ -13,6 +13,7 @@ export interface AgentConnectDeps {
   prompt?: typeof prompts;
   getAgent?: typeof api.getBidderAgent;
   updateAgent?: typeof api.updateBidderAgent;
+  registerWorkforceAgent?: typeof api.registerWorkforceAgent;
   readCfg?: typeof readConfig;
   writeCfg?: typeof updateConfig;
   out?: typeof ui;
@@ -34,6 +35,7 @@ export function makeAgentConnect(deps: AgentConnectDeps = {}) {
   const prompt = deps.prompt ?? prompts;
   const getAgent = deps.getAgent ?? api.getBidderAgent;
   const updateAgent = deps.updateAgent ?? api.updateBidderAgent;
+  const registerWA = deps.registerWorkforceAgent ?? api.registerWorkforceAgent;
   const readCfg = deps.readCfg ?? readConfig;
   const writeCfg = deps.writeCfg ?? updateConfig;
   const out = deps.out ?? ui;
@@ -92,6 +94,13 @@ export function makeAgentConnect(deps: AgentConnectDeps = {}) {
 
     if (agentId) {
       writeCfg({ agent_id: agentId });
+    }
+
+    // Register workforce agent — activates the Bidder Agent on first connect
+    try {
+      await registerWA({ name, capabilities }, { apiUrl: opts.apiUrl });
+    } catch (err) {
+      out.warn(`Workforce agent registration failed: ${(err as Error).message}`);
     }
 
     out.success(`Agent "${out.bold(name)}" connected.`);

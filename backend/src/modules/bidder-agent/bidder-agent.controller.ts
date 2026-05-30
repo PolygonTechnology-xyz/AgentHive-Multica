@@ -104,6 +104,12 @@ export class BidderAgentController {
     return this.bidderAgentService.findBidHistory(user.id);
   }
 
+  @ApiOperation({ summary: 'NL prompt history (last 20)' })
+  @Get('me/history/prompts')
+  getPromptHistory(@CurrentUser() user: User) {
+    return this.bidderAgentService.findPromptHistory(user.id);
+  }
+
   @ApiOperation({ summary: 'Dry-run the scoring engine on a hypothetical job' })
   @Post('me/test-score')
   testScore(@CurrentUser() user: User, @Body() dto: TestScoreDto) {
