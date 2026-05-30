@@ -1,13 +1,14 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DeliveryService } from './delivery.service';
-import { Delivery } from './delivery.entity';
+import { Delivery, DeliveryStatus } from './delivery.entity';
+import { DeliveryFilesService } from './delivery-files.service';
 import { Dispatch, DispatchStatus } from '../dispatch/dispatch.entity';
 import { Job, JobStatus } from '../jobs/job.entity';
-import { Payment } from '../payments/payment.entity';
+import { Payment, PaymentStatus } from '../payments/payment.entity';
+import { PaymentsService } from '../payments/payments.service';
 
 describe('DeliveryService', () => {
   let service: DeliveryService;
@@ -15,7 +16,8 @@ describe('DeliveryService', () => {
   let dispatchRepo: any;
   let jobRepo: any;
   let paymentRepo: any;
-  let config: any;
+  let deliveryFilesService: any;
+  let paymentsService: any;
   let emitter: any;
 
   beforeEach(async () => {
@@ -29,7 +31,11 @@ describe('DeliveryService', () => {
     dispatchRepo = { findOne: jest.fn(), save: jest.fn((d) => Promise.resolve(d)) };
     jobRepo = { findOne: jest.fn(), update: jest.fn() };
     paymentRepo = { findOne: jest.fn() };
-    config = { get: jest.fn() };
+    deliveryFilesService = {
+      assertFilesBelongToDispatch: jest.fn().mockResolvedValue([]),
+      appendSignedUrls: jest.fn((deliveries) => Promise.resolve(deliveries.map((delivery) => ({ ...delivery, attachments: delivery.attachments ?? [] })))),
+    };
+    paymentsService = { release: jest.fn().mockResolvedValue({}) };
     emitter = { emit: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -39,7 +45,8 @@ describe('DeliveryService', () => {
         { provide: getRepositoryToken(Dispatch), useValue: dispatchRepo },
         { provide: getRepositoryToken(Job), useValue: jobRepo },
         { provide: getRepositoryToken(Payment), useValue: paymentRepo },
-        { provide: ConfigService, useValue: config },
+        { provide: DeliveryFilesService, useValue: deliveryFilesService },
+        { provide: PaymentsService, useValue: paymentsService },
         { provide: EventEmitter2, useValue: emitter },
       ],
     }).compile();
@@ -64,14 +71,17 @@ describe('DeliveryService', () => {
 
     it('creates delivery with revisionRound=1 when first delivery', async () => {
       dispatchRepo.findOne.mockResolvedValue({ id: 'd', jobId: 'j', freelancerId: 'me', status: DispatchStatus.IN_PROGRESS });
+      jobRepo.findOne.mockResolvedValue({ id: 'j', buyerId: 'buyer' });
       deliveryRepo.findOne.mockResolvedValue(null);
       const result: any = await service.submit('d', 'me', { message: 'hi' });
       expect(result.revisionRound).toBe(1);
+      expect(result.status).toBe(DeliveryStatus.SUBMITTED);
       expect(emitter.emit).toHaveBeenCalledWith('delivery.submitted', expect.any(Object));
     });
 
     it('increments revisionRound for subsequent deliveries', async () => {
       dispatchRepo.findOne.mockResolvedValue({ id: 'd', jobId: 'j', freelancerId: 'me', status: DispatchStatus.REVISION });
+      jobRepo.findOne.mockResolvedValue({ id: 'j', buyerId: 'buyer' });
       deliveryRepo.findOne.mockResolvedValue({ revisionRound: 1 });
       const result: any = await service.submit('d', 'me', { message: 'r2' });
       expect(result.revisionRound).toBe(2);
@@ -85,7 +95,7 @@ describe('DeliveryService', () => {
     });
 
     it('throws NotFoundException when dispatch missing', async () => {
-      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp' });
+      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp', status: DeliveryStatus.SUBMITTED });
       dispatchRepo.findOne.mockResolvedValue(null);
       await expect(service.requestRevision('d', 'b', 'r')).rejects.toThrow(NotFoundException);
     });
@@ -97,32 +107,28 @@ describe('DeliveryService', () => {
       await expect(service.requestRevision('d', 'me', 'r')).rejects.toThrow(ForbiddenException);
     });
 
-    it('throws BadRequestException when max revisions reached', async () => {
-      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp', revisionRound: 2 });
-      dispatchRepo.findOne.mockResolvedValue({ id: 'dp', jobId: 'j' });
-      jobRepo.findOne.mockResolvedValue({ id: 'j', buyerId: 'me' });
-      config.get.mockReturnValue(2);
-      await expect(service.requestRevision('d', 'me', 'r')).rejects.toThrow(BadRequestException);
-    });
-
     it('sets statuses to REVISION and emits event', async () => {
-      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp', revisionRound: 0 });
+      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp', revisionRound: 0, status: DeliveryStatus.SUBMITTED });
       const dispatch: any = { id: 'dp', jobId: 'j', status: DispatchStatus.DELIVERED };
       dispatchRepo.findOne.mockResolvedValue(dispatch);
       jobRepo.findOne.mockResolvedValue({ id: 'j', buyerId: 'me' });
-      config.get.mockReturnValue(2);
       await service.requestRevision('d', 'me', 'fix x');
       expect(dispatch.status).toBe(DispatchStatus.REVISION);
+      expect(deliveryRepo.save).toHaveBeenCalledWith(expect.objectContaining({ status: DeliveryStatus.REVISION_REQUESTED }));
       expect(jobRepo.update).toHaveBeenCalledWith('j', { status: JobStatus.REVISION });
       expect(emitter.emit).toHaveBeenCalledWith('delivery.revision-requested', expect.any(Object));
     });
 
-    it('uses default maxRevisions=2 when config not set', async () => {
-      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp', revisionRound: 2 });
-      dispatchRepo.findOne.mockResolvedValue({ id: 'dp', jobId: 'j' });
+    it('allows revision requests beyond prior cap', async () => {
+      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp', revisionRound: 5, status: DeliveryStatus.SUBMITTED });
+      dispatchRepo.findOne.mockResolvedValue({ id: 'dp', jobId: 'j', freelancerId: 'f' });
       jobRepo.findOne.mockResolvedValue({ id: 'j', buyerId: 'me' });
-      config.get.mockReturnValue(undefined);
-      await expect(service.requestRevision('d', 'me', 'r')).rejects.toThrow(BadRequestException);
+      await expect(service.requestRevision('d', 'me', 'valid reason')).resolves.toBeUndefined();
+    });
+
+    it('throws when delivery is already approved', async () => {
+      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp', status: DeliveryStatus.APPROVED });
+      await expect(service.requestRevision('d', 'me', 'valid reason')).rejects.toThrow('Delivery already approved');
     });
   });
 
@@ -133,31 +139,33 @@ describe('DeliveryService', () => {
     });
 
     it('throws NotFoundException when dispatch missing', async () => {
-      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp' });
+      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp', status: DeliveryStatus.SUBMITTED });
       dispatchRepo.findOne.mockResolvedValue(null);
       await expect(service.approve('d', 'b')).rejects.toThrow(NotFoundException);
     });
 
     it('throws ForbiddenException when not buyer', async () => {
-      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp' });
+      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp', status: DeliveryStatus.SUBMITTED });
       dispatchRepo.findOne.mockResolvedValue({ id: 'dp', jobId: 'j' });
       jobRepo.findOne.mockResolvedValue({ id: 'j', buyerId: 'other' });
       await expect(service.approve('d', 'me')).rejects.toThrow(ForbiddenException);
     });
 
     it('sets dispatch to COMPLETED and emits delivery.approved with paymentId', async () => {
-      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp' });
+      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp', status: DeliveryStatus.SUBMITTED });
       const dispatch: any = { id: 'dp', jobId: 'j', status: DispatchStatus.DELIVERED };
       dispatchRepo.findOne.mockResolvedValue(dispatch);
       jobRepo.findOne.mockResolvedValue({ id: 'j', buyerId: 'me' });
-      paymentRepo.findOne.mockResolvedValue({ id: 'p1' });
+      paymentRepo.findOne.mockResolvedValue({ id: 'p1', status: PaymentStatus.HELD });
       await service.approve('d', 'me');
       expect(dispatch.status).toBe(DispatchStatus.COMPLETED);
+      expect(deliveryRepo.save).toHaveBeenCalledWith(expect.objectContaining({ status: DeliveryStatus.APPROVED }));
+      expect(paymentsService.release).toHaveBeenCalledWith('p1', 'me');
       expect(emitter.emit).toHaveBeenCalledWith('delivery.approved', expect.objectContaining({ paymentId: 'p1' }));
     });
 
     it('handles missing payment gracefully', async () => {
-      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp' });
+      deliveryRepo.findOne.mockResolvedValue({ id: 'd', dispatchId: 'dp', status: DeliveryStatus.SUBMITTED });
       dispatchRepo.findOne.mockResolvedValue({ id: 'dp', jobId: 'j', status: DispatchStatus.DELIVERED });
       jobRepo.findOne.mockResolvedValue({ id: 'j', buyerId: 'me' });
       paymentRepo.findOne.mockResolvedValue(null);

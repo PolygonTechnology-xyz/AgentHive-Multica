@@ -4,11 +4,17 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { NotificationsService } from './notifications.service';
 import { Notification } from './notification.entity';
+import { User } from '../users/user.entity';
+import { Job } from '../jobs/job.entity';
+import { Dispatch } from '../dispatch/dispatch.entity';
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
   let notifRepo: any;
   let config: any;
+  let userRepo: any;
+  let jobRepo: any;
+  let dispatchRepo: any;
   let updateQB: any;
 
   beforeEach(async () => {
@@ -29,11 +35,17 @@ describe('NotificationsService', () => {
       createQueryBuilder: jest.fn(() => updateQB),
     };
     config = { get: jest.fn() };
+    userRepo = { findOne: jest.fn() };
+    jobRepo = { findOne: jest.fn() };
+    dispatchRepo = { findOne: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationsService,
         { provide: getRepositoryToken(Notification), useValue: notifRepo },
+        { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: getRepositoryToken(Job), useValue: jobRepo },
+        { provide: getRepositoryToken(Dispatch), useValue: dispatchRepo },
         { provide: ConfigService, useValue: config },
       ],
     }).compile();
@@ -97,9 +109,18 @@ describe('NotificationsService', () => {
   });
 
   describe('event listeners', () => {
-    it('logs on delivery.submitted', async () => {
-      await expect(service.onDeliverySubmitted({ jobId: 'j' })).resolves.toBeUndefined();
+    it('notifies buyer on delivery.submitted', async () => {
+      jobRepo.findOne.mockResolvedValue({ id: 'j', buyerId: 'buyer', title: 'Job title' });
+      userRepo.findOne.mockResolvedValue({ id: 'buyer', email: 'buyer@example.com' });
+      await service.onDeliverySubmitted({ dispatchId: 'dp', deliveryId: 'd', jobId: 'j', buyerId: 'buyer', revisionRound: 2 });
+      expect(notifRepo.save).toHaveBeenCalledWith(expect.objectContaining({ userId: 'buyer', type: 'delivery.submitted' }));
     });
+    it('notifies freelancer on delivery.revision-requested', async () => {
+      userRepo.findOne.mockResolvedValue({ id: 'free', email: 'free@example.com' });
+      await service.onDeliveryRevisionRequested({ dispatchId: 'dp', deliveryId: 'd', jobId: 'j', freelancerId: 'free', reason: 'Please improve the copy.' });
+      expect(notifRepo.save).toHaveBeenCalledWith(expect.objectContaining({ userId: 'free', type: 'delivery.revision-requested' }));
+    });
+
     it('logs on delivery.approved', async () => {
       await expect(service.onDeliveryApproved({ jobId: 'j' })).resolves.toBeUndefined();
     });

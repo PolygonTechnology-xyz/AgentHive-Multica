@@ -10,20 +10,20 @@ describe('configuration', () => {
     expect(cfg.database.host).toBeDefined();
     expect(cfg.jwt.secret).toBeDefined();
     expect(cfg.payment.feePct).toBeGreaterThanOrEqual(0);
-    expect(cfg.maxRevisionsDefault).toBeGreaterThan(0);
+    expect(cfg.fileSigningSecret).toBeDefined();
   });
 
   it('reads from env vars when present', () => {
     process.env.PORT = '4000';
     process.env.PAYMENT_GATEWAY = 'ppay';
-    process.env.MAX_REVISIONS_DEFAULT = '5';
+    process.env.FILE_SIGNING_SECRET = 'test-secret';
     const cfg = configuration();
     expect(cfg.port).toBe(4000);
     expect(cfg.payment.gateway).toBe('ppay');
-    expect(cfg.maxRevisionsDefault).toBe(5);
+    expect(cfg.fileSigningSecret).toBe('test-secret');
     delete process.env.PORT;
     delete process.env.PAYMENT_GATEWAY;
-    delete process.env.MAX_REVISIONS_DEFAULT;
+    delete process.env.FILE_SIGNING_SECRET;
   });
 });
 

@@ -20,6 +20,10 @@ class EnvironmentVariables {
   JWT_SECRET: string;
 
   @IsString()
+  @IsOptional()
+  FILE_SIGNING_SECRET?: string;
+
+  @IsString()
   DB_HOST: string;
 
   @IsString()
@@ -40,6 +44,10 @@ export function validate(config: Record<string, unknown>) {
 
   if (errors.length > 0) {
     throw new Error(errors.toString());
+  }
+
+  if (config.NODE_ENV === Environment.Production && !config.FILE_SIGNING_SECRET) {
+    throw new Error('FILE_SIGNING_SECRET is required in production');
   }
   return validatedConfig;
 }

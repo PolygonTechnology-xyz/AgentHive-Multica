@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { OnEvent } from '@nestjs/event-emitter';
-import { Repository } from 'typeorm';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import { In, Repository } from 'typeorm';
 import { Dispatch, DispatchStatus } from './dispatch.entity';
 import { Job } from '../jobs/job.entity';
 import { Bid, BidStatus } from '../bids/bid.entity';
@@ -13,6 +13,7 @@ export class DispatchService {
     @InjectRepository(Dispatch) private dispatchRepo: Repository<Dispatch>,
     @InjectRepository(Job) private jobRepo: Repository<Job>,
     @InjectRepository(Bid) private bidRepo: Repository<Bid>,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   @OnEvent('payment.held')
@@ -48,9 +49,19 @@ export class DispatchService {
 
   async findActive(userId: string): Promise<Dispatch[]> {
     return this.dispatchRepo.find({
-      where: { freelancerId: userId, status: DispatchStatus.IN_PROGRESS },
+      where: { freelancerId: userId, status: In([DispatchStatus.IN_PROGRESS, DispatchStatus.REVISION]) },
       order: { assignedAt: 'DESC' },
     });
+  }
+
+  @OnEvent('delivery.revision-requested')
+  async onRevisionRequested(event: { dispatchId: string; deliveryId: string; jobId: string; freelancerId: string; reason: string }) {
+    const dispatch = await this.dispatchRepo.findOne({ where: { id: event.dispatchId } });
+    if (!dispatch) return;
+
+    dispatch.status = DispatchStatus.IN_PROGRESS;
+    await this.dispatchRepo.save(dispatch);
+    this.eventEmitter.emit('dispatch.revision-assigned', event);
   }
 
   async start(jobId: string, freelancerId: string): Promise<Dispatch> {

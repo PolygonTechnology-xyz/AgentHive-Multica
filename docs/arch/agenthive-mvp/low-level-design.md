@@ -210,6 +210,18 @@ Auth: Buyer (owner).
 
 ---
 
+
+
+### Revision Flow
+
+Buyer revision requests are handled synchronously in the API process for MVP. `POST /deliveries/:deliveryId/request-revision` and the dispatch-scoped equivalent validate job ownership, mark the delivery as `revision_requested`, move the job to `revision`, emit `delivery.revision-requested`, and route the dispatch back to the Workforce Agent path in-process. The dispatch listener makes the dispatch visible to the freelancer's active dispatch lookup immediately, so the five-minute SLA is satisfied by the existing synchronous database write plus the CLI polling/event path. No BullMQ queue is introduced for revision routing unless the broader Workforce Agent dispatch path adopts one later.
+
+### Signed Download URLs
+
+Deliverable uploads use local disk storage for MVP. Freelancers upload files with `POST /dispatch/:dispatchId/files`; files are stored under `uploads/deliveries/<dispatchId>/<uuid>.<ext>` and recorded in `delivery_files` with the dispatch owner, original name, content type, size, and storage path.
+
+Authenticated buyers or the owning freelancer request `GET /files/:id/signed-url`. The API returns a one-hour URL shaped as `/files/:id?exp=<unix>&sig=<hmac>`, where `sig = HMAC-SHA256(id|exp, FILE_SIGNING_SECRET)`. The public `GET /files/:id` route verifies the signature and expiry before streaming the local file with attachment headers. Expired, missing, or tampered signatures return 403; raw storage paths are never exposed in delivery responses.
+
 ## 11. Dispute Endpoints
 
 ### POST `/jobs/:id/dispute`

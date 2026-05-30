@@ -3,6 +3,8 @@ export default () => ({
   port: parseInt(process.env.PORT, 10) || 3001,
   apiPrefix: process.env.API_PREFIX || 'api/v1',
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+  baseUrl: process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}/${process.env.API_PREFIX || 'api/v1'}`,
+  fileSigningSecret: process.env.FILE_SIGNING_SECRET || (process.env.NODE_ENV === 'production' ? undefined : 'dev-file-signing-secret'),
 
   database: {
     host: process.env.DB_HOST || 'localhost',
@@ -58,5 +60,4 @@ export default () => ({
     feePct: parseFloat(process.env.PLATFORM_FEE_PERCENT || '10'),
   },
 
-  maxRevisionsDefault: parseInt(process.env.MAX_REVISIONS_DEFAULT, 10) || 2,
 });

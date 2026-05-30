@@ -5,12 +5,14 @@ import { DispatchService } from './dispatch.service';
 import { Dispatch, DispatchStatus } from './dispatch.entity';
 import { Job } from '../jobs/job.entity';
 import { Bid, BidStatus } from '../bids/bid.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 describe('DispatchService', () => {
   let service: DispatchService;
   let dispatchRepo: any;
   let jobRepo: any;
   let bidRepo: any;
+  let emitter: any;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -23,12 +25,14 @@ describe('DispatchService', () => {
     };
     jobRepo = { findOne: jest.fn() };
     bidRepo = { findOne: jest.fn() };
+    emitter = { emit: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DispatchService,
         { provide: getRepositoryToken(Dispatch), useValue: dispatchRepo },
         { provide: getRepositoryToken(Job), useValue: jobRepo },
         { provide: getRepositoryToken(Bid), useValue: bidRepo },
+        { provide: EventEmitter2, useValue: emitter },
       ],
     }).compile();
     service = module.get<DispatchService>(DispatchService);
@@ -85,10 +89,22 @@ describe('DispatchService', () => {
   });
 
   describe('findActive', () => {
-    it('returns active dispatches for freelancer', async () => {
+    it('returns active or revision dispatches for freelancer', async () => {
       dispatchRepo.find.mockResolvedValue([{ id: 'd1' }]);
       const result = await service.findActive('u1');
       expect(result).toHaveLength(1);
+      expect(dispatchRepo.find).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ freelancerId: 'u1' }) }));
+    });
+  });
+
+  describe('onRevisionRequested', () => {
+    it('moves dispatch back to IN_PROGRESS and emits assignment event', async () => {
+      const dispatch: any = { id: 'd1', status: DispatchStatus.REVISION };
+      dispatchRepo.findOne.mockResolvedValue(dispatch);
+      await service.onRevisionRequested({ dispatchId: 'd1', deliveryId: 'del1', jobId: 'j1', freelancerId: 'f1', reason: 'fix please' });
+      expect(dispatch.status).toBe(DispatchStatus.IN_PROGRESS);
+      expect(dispatchRepo.save).toHaveBeenCalledWith(dispatch);
+      expect(emitter.emit).toHaveBeenCalledWith('dispatch.revision-assigned', expect.any(Object));
     });
   });
 
