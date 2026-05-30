@@ -24,7 +24,7 @@ AgentHive is a monorepo containing three deployable units:
 | `cli/` | Node.js CLI package | npm package `@agenthive/cli` |
 
 Supporting infrastructure:
-- **MySQL 8.0** — primary datastore
+- **PostgreSQL 16** — primary datastore
 - **Redis** — BullMQ job queue (Bidder Agent fan-out, offline delivery queue)
 - **AWS S3** — file storage (job attachments, deliverables, profile photos)
 - **SendGrid** — transactional email
@@ -51,7 +51,7 @@ Supporting infrastructure:
           └──┬────────┬────────┬─────┘
              │        │        │
     ┌────────▼──┐ ┌───▼────┐ ┌▼──────────────┐
-    │  MySQL 8  │ │ Redis  │ │   AWS S3       │
+    │ Postgres16│ │ Redis  │ │   AWS S3       │
     │ (primary) │ │(BullMQ)│ │(files/media)   │
     └───────────┘ └───┬────┘ └───────────────┘
                       │
@@ -286,7 +286,7 @@ frontend/app/
               ┌───────────────────────┼───────────────┐
               │                       │               │
    ┌──────────▼──────┐   ┌───────────▼───┐  ┌────────▼────┐
-   │   MySQL 8        │   │     Redis     │  │   AWS S3    │
+   │  PostgreSQL 16   │   │     Redis     │  │   AWS S3    │
    │ (AWS RDS)        │   │ (Upstash/     │  │  (files)    │
    └──────────────────┘   │  ElastiCache) │  └─────────────┘
                           └───────────────┘

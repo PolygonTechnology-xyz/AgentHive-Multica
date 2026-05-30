@@ -3,7 +3,7 @@
 **Version:** 1.0  
 **Date:** 2026-05-25  
 **Author:** AH-TL  
-**Engine:** MySQL 8.0  
+**Engine:** PostgreSQL 16  
 **ORM:** Prisma
 
 ---
@@ -29,7 +29,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
